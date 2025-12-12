@@ -13,12 +13,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Crear cliente de Supabase (solo si las credenciales existen)
 export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    })
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false, // Deshabilitar para evitar redirects en CORS
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      storageKey: 'clearhire-auth',
+      flowType: 'pkce' // Usar PKCE flow para mejor seguridad sin redirects
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'clearhire-ats@1.0.0'
+      }
+    }
+  })
   : null;
 
 // Helper para verificar si Supabase está configurado
