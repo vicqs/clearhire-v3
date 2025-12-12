@@ -59,7 +59,24 @@ class AuthService {
           isMock: false
         });
       } else {
-        console.log('⚠️ No hay sesión activa, creando usuario anónimo');
+        console.log('⚠️ No hay sesión activa');
+
+        // Auto-login configuration check
+        const autoEmail = import.meta.env.VITE_AUTO_LOGIN_EMAIL;
+        const autoPassword = import.meta.env.VITE_AUTO_LOGIN_PASSWORD;
+
+        if (autoEmail && autoPassword) {
+          console.log('🔄 Intentando auto-login con credenciales configuradas...');
+          const result = await this.signIn(autoEmail, autoPassword);
+          if (result.success) {
+            console.log('✅ Auto-login exitoso');
+            return;
+          }
+          console.warn('⚠️ Auto-login falló:', result.error);
+        }
+
+        // Only create anonymous user if no auto-login credentials or if it failed
+        // But remember anonymous login is disabled in prod mostly
         await this.createAnonymousUser();
       }
 
