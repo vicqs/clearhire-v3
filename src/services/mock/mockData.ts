@@ -299,6 +299,7 @@ export const resetMockApplications = (): void => {
 
 // Mock Profile
 export const mockProfile: Profile = {
+  id: 'mock-profile-1',
   personalInfo: {
     firstName: 'Juan',
     lastName: 'Pérez',

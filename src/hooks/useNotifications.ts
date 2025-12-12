@@ -60,39 +60,42 @@ export const useNotifications = (candidateId: string): UseNotificationsReturn =>
   );
 
   // Cargar notificaciones
-  const refreshNotifications = useCallback(() => {
-    const history = notificationService.getNotificationHistory(candidateId);
-    const unread = notificationService.getUnreadCount(candidateId);
-    const analyticsData = notificationService.getAnalytics(candidateId);
-    
-    setNotifications(history);
-    setUnreadCount(unread);
-    setAnalytics(analyticsData);
+  const refreshNotifications = useCallback(async () => {
+    try {
+      const history = await notificationService.getNotifications(candidateId);
+      const unread = await notificationService.getUnreadCount(candidateId);
+      const analyticsData = await notificationService.getAnalytics(candidateId);
+
+      setNotifications(history);
+      setUnreadCount(unread);
+      setAnalytics(analyticsData);
+    } catch (error) {
+      console.error('Error refreshing notifications:', error);
+    }
   }, [candidateId]);
 
   // Efecto para cargar datos iniciales y configurar listeners
   useEffect(() => {
     refreshNotifications();
-    
+
     // Configurar listeners para eventos en tiempo real
-    const handleNotificationSent = (notification: Notification) => {
-      if (notification.candidateId === candidateId) {
+    const handleNotificationSent = (data: any) => {
+      // Si el evento trae data del candidato actual, refrescar
+      if (data.candidateId === candidateId || data.candidate_id === candidateId) {
         refreshNotifications();
       }
     };
 
-    const handleNotificationRead = (notification: Notification) => {
-      if (notification.candidateId === candidateId) {
-        refreshNotifications();
-      }
+    const handleNotificationRead = () => {
+      refreshNotifications(); // Refrescar siempre para actualizar conteos
     };
 
     notificationService.addEventListener('notification_sent', handleNotificationSent);
     notificationService.addEventListener('notification_read', handleNotificationRead);
-    
-    // Actualizar cada 30 segundos para reflejar cambios de estado
+
+    // Actualizar cada 30 segundos
     const interval = setInterval(refreshNotifications, 30000);
-    
+
     return () => {
       clearInterval(interval);
       notificationService.removeEventListener('notification_sent', handleNotificationSent);
@@ -106,7 +109,7 @@ export const useNotifications = (candidateId: string): UseNotificationsReturn =>
     applicationId: string,
     oldStatus: ApplicationStatus,
     newStatus: ApplicationStatus,
-    metadata: {
+    _metadata: {
       positionTitle: string;
       companyName: string;
       candidateName: string;
@@ -114,18 +117,17 @@ export const useNotifications = (candidateId: string): UseNotificationsReturn =>
     }
   ) => {
     try {
-      await notificationService.detectStatusChange(
-        candidateId,
+      await notificationService.sendStatusChangeNotification(
         applicationId,
         oldStatus,
         newStatus,
-        metadata
+        candidateId,
+        'candidate'
       );
-      
-      // Actualizar estado local después de enviar
+
+      // Actualizar estado local
       setTimeout(refreshNotifications, 1000);
-      
-      // Mostrar toast de confirmación
+
       console.log(`📱 Notificación enviada: ${oldStatus} → ${newStatus}`);
     } catch (error) {
       console.error('Error sending status change notification:', error);
@@ -133,13 +135,13 @@ export const useNotifications = (candidateId: string): UseNotificationsReturn =>
   }, [refreshNotifications]);
 
   // Marcar como leída
-  const markAsRead = useCallback((notificationId: string) => {
-    notificationService.markAsRead(notificationId);
+  const markAsRead = useCallback(async (notificationId: string) => {
+    await notificationService.markAsRead(notificationId);
     refreshNotifications();
   }, [refreshNotifications]);
 
   // Programar recordatorio de entrevista
-  const scheduleInterviewReminder = useCallback((
+  const scheduleInterviewReminder = useCallback(async (
     applicationId: string,
     interviewDate: Date,
     metadata: {
@@ -150,27 +152,26 @@ export const useNotifications = (candidateId: string): UseNotificationsReturn =>
       interviewMode: string;
     }
   ) => {
-    notificationService.scheduleInterviewReminder(
+    await notificationService.scheduleInterviewReminder(
       candidateId,
       applicationId,
       interviewDate,
       metadata
     );
-  }, [candidateId]);
+    refreshNotifications();
+  }, [candidateId, refreshNotifications]);
 
   // Enviar alerta de deadline
   const sendDeadlineAlert = useCallback(async (
     applicationId: string,
     type: 'interview_confirmation' | 'document_upload',
-    deadline: Date,
-    metadata: any
+    deadline: Date
   ) => {
     await notificationService.sendDeadlineAlert(
       candidateId,
       applicationId,
       type,
-      deadline,
-      metadata
+      deadline
     );
     setTimeout(refreshNotifications, 1000);
   }, [candidateId, refreshNotifications]);
@@ -201,7 +202,6 @@ export const useNotifications = (candidateId: string): UseNotificationsReturn =>
 
   // Limpiar todas las notificaciones
   const clearAllNotifications = useCallback(() => {
-    // Marcar todas como leídas
     notifications
       .filter(n => n.status !== 'read')
       .forEach(n => notificationService.markAsRead(n.id));

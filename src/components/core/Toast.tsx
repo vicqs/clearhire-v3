@@ -4,9 +4,11 @@
 import React, { useEffect } from 'react';
 import { CheckCircle, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
 
+export type ToastType = 'success' | 'error' | 'warning' | 'info';
+
 export interface ToastProps {
   message: string;
-  type?: 'success' | 'error' | 'warning' | 'info';
+  type?: ToastType;
   duration?: number;
   onClose: () => void;
 }

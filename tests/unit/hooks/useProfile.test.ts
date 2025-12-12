@@ -232,4 +232,3 @@ describe('Error Handling', () => {
     expect(result.current.error).toBeNull()
   })
 })
-})

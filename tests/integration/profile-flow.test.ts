@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react';
 import { useProfile } from '../../src/hooks/useProfile';
 import { dataService } from '../../src/services/dataService';
@@ -10,7 +10,7 @@ describe('Profile Integration Flow', () => {
     it('should complete full profile lifecycle', async () => {
       // Simular que Supabase está configurado
       vi.spyOn(dataService, 'isSupabaseMode').mockReturnValue(true);
-      
+
       const mockSupabaseService = {
         getProfile: vi.fn().mockResolvedValue(null),
         saveProfile: vi.fn().mockResolvedValue(undefined),
@@ -38,7 +38,7 @@ describe('Profile Integration Flow', () => {
 
       // 3. Actualizar perfil existente
       mockSupabaseService.getProfile.mockResolvedValue(mockProfile);
-      
+
       const updatedProfile = {
         ...mockProfile,
         personalInfo: {
@@ -60,7 +60,7 @@ describe('Profile Integration Flow', () => {
 
     it('should handle network errors gracefully', async () => {
       vi.spyOn(dataService, 'isSupabaseMode').mockReturnValue(true);
-      
+
       const networkError = new Error('Network error');
       vi.spyOn(dataService, 'getProfile').mockRejectedValue(networkError);
 
@@ -77,7 +77,7 @@ describe('Profile Integration Flow', () => {
     it('should handle save errors and maintain local state', async () => {
       vi.spyOn(dataService, 'isSupabaseMode').mockReturnValue(true);
       vi.spyOn(dataService, 'getProfile').mockResolvedValue(mockProfile);
-      
+
       const saveError = new Error('Save failed');
       vi.spyOn(dataService, 'saveProfile').mockRejectedValue(saveError);
 
@@ -108,9 +108,9 @@ describe('Profile Integration Flow', () => {
   describe('Auto-save Integration', () => {
     it('should auto-save profile changes after delay', async () => {
       vi.useFakeTimers();
-      
+
       const mockSave = vi.fn().mockResolvedValue(undefined);
-      
+
       // Simular componente que usa auto-save
       const { result } = renderHook(() => {
         const { useAutoSave } = require('../../src/hooks/useAutoSave');
@@ -148,11 +148,11 @@ describe('Profile Integration Flow', () => {
   describe('Authentication Integration', () => {
     it('should handle authentication state changes', async () => {
       const { getCurrentUser } = require('../../src/utils/authHelper');
-      
+
       // Simular usuario no autenticado inicialmente
       getCurrentUser.mockResolvedValue(null);
 
-      const { result, rerender } = renderHook(() => useProfile());
+      const { result } = renderHook(() => useProfile());
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -165,7 +165,7 @@ describe('Profile Integration Flow', () => {
       };
 
       getCurrentUser.mockResolvedValue(mockUser);
-      
+
       // Recargar después del login
       await result.current.reload();
 
@@ -177,11 +177,11 @@ describe('Profile Integration Flow', () => {
   describe('Data Consistency', () => {
     it('should maintain data consistency across multiple operations', async () => {
       vi.spyOn(dataService, 'isSupabaseMode').mockReturnValue(true);
-      
+
       let storedProfile = mockProfile;
-      
+
       vi.spyOn(dataService, 'getProfile').mockImplementation(async () => storedProfile);
-      vi.spyOn(dataService, 'saveProfile').mockImplementation(async (userId, profile) => {
+      vi.spyOn(dataService, 'saveProfile').mockImplementation(async (_userId, profile) => {
         storedProfile = profile;
       });
 

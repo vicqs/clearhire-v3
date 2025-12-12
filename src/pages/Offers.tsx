@@ -1,18 +1,20 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, Filter, TrendingUp } from 'lucide-react';
 import { useHapticFeedback } from '../hooks/useHapticFeedback';
 import { PullToRefresh } from '../components/core/PullToRefresh';
 import OfferCard from '../components/salary/OfferCard';
-import { mockJobOffers } from '../services/mock/mockOffers';
+import { dataService } from '../services/dataService';
 import type { JobOffer } from '../types/salary';
 import { useApplications } from '../hooks/useApplications';
+import { supabase } from '../lib/supabase';
 
 const Offers: React.FC = () => {
   const navigate = useNavigate();
   const { triggerHaptic } = useHapticFeedback();
   const { createApplication } = useApplications();
-  const [offers, setOffers] = useState<JobOffer[]>(mockJobOffers);
+  const [offers, setOffers] = useState<JobOffer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'accepted' | 'declined' | 'negotiating'>('all');
 
   // Estados para modales
@@ -24,10 +26,36 @@ const Offers: React.FC = () => {
   const [negotiationMessage, setNegotiationMessage] = useState('');
   const [declineReason, setDeclineReason] = useState('');
 
+  // Cargar ofertas al iniciar
+  const fetchOffers = async () => {
+    try {
+      if (!supabase) {
+        throw new Error('Supabase client not initialized');
+      }
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        throw authError || new Error('No active session');
+      }
+
+      const userOffers = await dataService.getOffers(user.id);
+      setOffers(userOffers);
+    } catch (error) {
+      console.error('Error cargando ofertas:', error);
+      navigate('/');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOffers();
+  }, []);
+
   const handleRefresh = async () => {
     triggerHaptic('medium');
-    // Simulate API call to refresh offers
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await fetchOffers();
     triggerHaptic('success');
   };
 
@@ -58,10 +86,25 @@ const Offers: React.FC = () => {
       )
     );
 
+    // Persistir el cambio de estado en Supabase
+    try {
+      await dataService.updateOfferStatus(selectedOffer.id, 'accepted');
+    } catch (error) {
+      console.error('Error actualizando estado de oferta:', error);
+    }
+
     // Crear aplicacion en Mis Postulaciones con estado activo
     try {
+      if (!supabase) throw new Error('Supabase not initialized');
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        console.error('No authenticated user found');
+        return;
+      }
+
       const newApplication = {
-        candidateId: 'user-1',
+        candidateId: user.id,
         jobId: selectedOffer.applicationId,
         company: selectedOffer.companyName,
         position: selectedOffer.positionTitle,
@@ -105,7 +148,7 @@ const Offers: React.FC = () => {
     }
   };
 
-  const confirmDeclineOffer = () => {
+  const confirmDeclineOffer = async () => {
     if (!selectedOffer) return;
 
     triggerHaptic('warning');
@@ -122,6 +165,13 @@ const Offers: React.FC = () => {
           : o
       )
     );
+
+    // Persistir el cambio de estado en Supabase
+    try {
+      await dataService.updateOfferStatus(selectedOffer.id, 'declined');
+    } catch (error) {
+      console.error('Error actualizando estado de oferta:', error);
+    }
 
     setShowDeclineModal(false);
     setDeclineReason('');
@@ -160,9 +210,9 @@ const Offers: React.FC = () => {
           ? {
             ...offer,
             status: 'negotiating' as const,
-            negotiationNotes: 'En negociaci�n - Esperando respuesta de la empresa',
+            negotiationNotes: 'En negociación - Esperando respuesta de la empresa',
             negotiationMessages: [...(offer.negotiationMessages || []), newMessage],
-            awaitingCandidateResponse: false // El candidato envi� mensaje, ahora espera respuesta
+            awaitingCandidateResponse: false // El candidato envió mensaje, ahora espera respuesta
           }
           : offer
       )
@@ -171,7 +221,7 @@ const Offers: React.FC = () => {
     setShowNegotiateModal(false);
     setNegotiationMessage('');
 
-    console.log(`Negociaci�n iniciada: ${selectedOffer.id}`);
+    console.log(`Negociación iniciada: ${selectedOffer.id}`);
   };
 
   const filteredOffers = filter === 'all'
@@ -182,6 +232,17 @@ const Offers: React.FC = () => {
     if (status === 'all') return offers.length;
     return offers.filter(offer => offer.status === status).length;
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Cargando ofertas...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
@@ -219,8 +280,8 @@ const Offers: React.FC = () => {
               <button
                 onClick={() => setFilter('all')}
                 className={`p-4 rounded-2xl border-2 transition-all text-left ${filter === 'all'
-                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
-                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-primary-300'
+                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-primary-300'
                   }`}
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -236,8 +297,8 @@ const Offers: React.FC = () => {
               <button
                 onClick={() => setFilter('pending')}
                 className={`p-4 rounded-2xl border-2 transition-all text-left ${filter === 'pending'
-                    ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30'
-                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-yellow-300'
+                  ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-yellow-300'
                   }`}
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -253,8 +314,8 @@ const Offers: React.FC = () => {
               <button
                 onClick={() => setFilter('accepted')}
                 className={`p-4 rounded-2xl border-2 transition-all text-left ${filter === 'accepted'
-                    ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
-                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-green-300'
+                  ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-green-300'
                   }`}
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -266,12 +327,12 @@ const Offers: React.FC = () => {
                 </p>
               </button>
 
-              {/* En Negociaci�n */}
+              {/* En Negociación */}
               <button
                 onClick={() => setFilter('negotiating')}
                 className={`p-4 rounded-2xl border-2 transition-all text-left ${filter === 'negotiating'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
-                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-300'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-300'
                   }`}
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -287,8 +348,8 @@ const Offers: React.FC = () => {
               <button
                 onClick={() => setFilter('declined')}
                 className={`p-4 rounded-2xl border-2 transition-all text-left ${filter === 'declined'
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/30'
-                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-red-300'
+                  ? 'border-red-500 bg-red-50 dark:bg-red-900/30'
+                  : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-red-300'
                   }`}
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -310,11 +371,11 @@ const Offers: React.FC = () => {
               <div className="text-center py-12">
                 <Briefcase className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400 mb-2">
-                  {filter === 'all' ? 'No tienes ofertas' : `No hay ofertas ${filter === 'pending' ? 'pendientes' : filter === 'accepted' ? 'aceptadas' : filter === 'negotiating' ? 'en negociaci�n' : 'rechazadas'}`}
+                  {filter === 'all' ? 'No tienes ofertas' : `No hay ofertas ${filter === 'pending' ? 'pendientes' : filter === 'accepted' ? 'aceptadas' : filter === 'negotiating' ? 'en negociación' : 'rechazadas'}`}
                 </h3>
                 <p className="text-slate-500 dark:text-slate-500">
                   {filter === 'all'
-                    ? 'Cuando las empresas te env�en ofertas, aparecer�n aqu�'
+                    ? 'Cuando las empresas te envíen ofertas, aparecerán aquí'
                     : 'Cambia el filtro para ver otras ofertas'
                   }
                 </p>
@@ -337,13 +398,13 @@ const Offers: React.FC = () => {
           {/* Info Footer */}
           <div className="mt-12 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl border border-blue-200 dark:border-blue-800">
             <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">
-              ?? Sobre el Calculador de Salario
+              ℹ️ Sobre el Calculador de Salario
             </h4>
             <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-              <p>� <strong>Salario neto:</strong> Lo que recibir�s en tu cuenta despu�s de impuestos y descuentos</p>
-              <p>� <strong>Beneficios valorados:</strong> Estimaci�n monetaria de seguros, vales, bonos y otros beneficios</p>
-              <p>� <strong>Paquete total:</strong> Tu compensaci�n real incluyendo salario y beneficios</p>
-              <p>� <strong>C�lculos por pa�s:</strong> Impuestos y regulaciones espec�ficas de cada pa�s de LATAM</p>
+              <p>• <strong>Salario neto:</strong> Lo que recibirás en tu cuenta después de impuestos y descuentos</p>
+              <p>• <strong>Beneficios valorados:</strong> Estimación monetaria de seguros, vales, bonos y otros beneficios</p>
+              <p>• <strong>Paquete total:</strong> Tu compensación real incluyendo salario y beneficios</p>
+              <p>• <strong>Cálculos por país:</strong> Impuestos y regulaciones específicas de cada país de LATAM</p>
             </div>
           </div>
         </main>
@@ -362,7 +423,7 @@ const Offers: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                      Aceptar Proceso de Contrataci�n
+                      Aceptar Proceso de Contratación
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
                       {selectedOffer.companyName}
@@ -388,19 +449,19 @@ const Offers: React.FC = () => {
 
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                     <p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-2">
-                      ?? Al aceptar entrar al proceso:
+                      📋 Al aceptar entrar al proceso:
                     </p>
                     <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                      <li>� Iniciar�s el proceso formal de contrataci�n</li>
-                      <li>� La empresa preparar� tu contrato</li>
-                      <li>� Recibir�s documentos para revisi�n y firma</li>
-                      <li>� Se coordinar� tu fecha de inicio</li>
-                      <li>� Podr�s revisar t�rminos antes de firmar</li>
+                      <li>• Iniciarás el proceso formal de contratación</li>
+                      <li>• La empresa preparará tu contrato</li>
+                      <li>• Recibirás documentos para revisión y firma</li>
+                      <li>• Se coordinará tu fecha de inicio</li>
+                      <li>• Podrás revisar términos antes de firmar</li>
                     </ul>
                   </div>
 
                   <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
-                    Esto NO es una firma de contrato, solo confirmas tu inter�s en continuar
+                    Esto NO es una firma de contrato, solo confirmas tu interés en continuar
                   </p>
                 </div>
 
@@ -441,7 +502,7 @@ const Offers: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                      Iniciar Negociaci�n
+                      Iniciar Negociación
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
                       {selectedOffer.companyName}
@@ -469,19 +530,19 @@ const Offers: React.FC = () => {
                   {selectedOffer.negotiationMessages && selectedOffer.negotiationMessages.length > 0 && (
                     <div className="max-h-64 overflow-y-auto space-y-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
                       <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
-                        ?? Historial de Negociaci�n
+                        💬 Historial de Negociación
                       </p>
                       {selectedOffer.negotiationMessages.map((msg) => (
                         <div
                           key={msg.id}
                           className={`p-3 rounded-lg ${msg.sender === 'candidate'
-                              ? 'bg-blue-100 dark:bg-blue-900/30 ml-4'
-                              : 'bg-green-100 dark:bg-green-900/30 mr-4'
+                            ? 'bg-blue-100 dark:bg-blue-900/30 ml-4'
+                            : 'bg-green-100 dark:bg-green-900/30 mr-4'
                             }`}
                         >
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                              {msg.sender === 'candidate' ? '?? T�' : '?? Empresa'}
+                              {msg.sender === 'candidate' ? '👤 Tú' : '🏢 Empresa'}
                             </span>
                             <span className="text-xs text-slate-500 dark:text-slate-400">
                               {new Date(msg.timestamp).toLocaleDateString('es-ES', {
@@ -504,23 +565,23 @@ const Offers: React.FC = () => {
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                       {selectedOffer.negotiationMessages && selectedOffer.negotiationMessages.length > 0
                         ? 'Tu respuesta:'
-                        : '�Qu� te gustar�a negociar?'}
+                        : '¿Qué te gustaría negociar?'}
                     </label>
                     <textarea
                       value={negotiationMessage}
                       onChange={(e) => setNegotiationMessage(e.target.value)}
-                      placeholder="Ej: Me gustar�a negociar un salario de �2,500,000 y trabajo remoto 3 d�as a la semana..."
+                      placeholder="Ej: Me gustaría negociar un salario de $2,500,000 y trabajo remoto 3 días a la semana..."
                       className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                       rows={4}
                     />
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                      S� espec�fico sobre salario, beneficios, horarios o modalidad de trabajo
+                      Sé específico sobre salario, beneficios, horarios o modalidad de trabajo
                     </p>
                   </div>
 
                   <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
                     <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                      ?? <strong>Tip:</strong> La empresa recibir� tu mensaje y responder� en 1-3 d�as h�biles. Mant�n un tono profesional y realista.
+                      💡 <strong>Tip:</strong> La empresa recibirá tu mensaje y responderá en 1-3 días hábiles. Mantén un tono profesional y realista.
                     </p>
                   </div>
                 </div>
@@ -566,7 +627,7 @@ const Offers: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                      �Rechazar esta oferta?
+                      ¿Rechazar esta oferta?
                     </h3>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
                       {selectedOffer.companyName}
@@ -578,26 +639,26 @@ const Offers: React.FC = () => {
                 <div className="mb-6 space-y-4">
                   <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
                     <p className="text-sm font-semibold text-red-900 dark:text-red-100 mb-2">
-                      ?? Esta acci�n no se puede deshacer
+                      ⚠️ Esta acción no se puede deshacer
                     </p>
                     <p className="text-sm text-red-700 dark:text-red-300">
-                      La empresa ser� notificada de tu decisi�n y la oferta se cerrar� permanentemente.
+                      La empresa será notificada de tu decisión y la oferta se cerrará permanentemente.
                     </p>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                      Raz�n del rechazo (opcional)
+                      Razón del rechazo (opcional)
                     </label>
                     <select
                       value={declineReason}
                       onChange={(e) => setDeclineReason(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     >
-                      <option value="">Selecciona una raz�n...</option>
+                      <option value="">Selecciona una razón...</option>
                       <option value="Salario no cumple expectativas">Salario no cumple expectativas</option>
-                      <option value="Acept� otra oferta">Acept� otra oferta</option>
-                      <option value="Ubicaci�n no conveniente">Ubicaci�n no conveniente</option>
+                      <option value="Acepté otra oferta">Acepté otra oferta</option>
+                      <option value="Ubicación no conveniente">Ubicación no conveniente</option>
                       <option value="Beneficios insuficientes">Beneficios insuficientes</option>
                       <option value="Cambio de planes personales">Cambio de planes personales</option>
                       <option value="Otro">Otro</option>
@@ -624,7 +685,7 @@ const Offers: React.FC = () => {
                     onClick={confirmDeclineOffer}
                     className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold rounded-xl transition-all active:scale-95 shadow-lg"
                   >
-                    S�, Rechazar
+                    Sí, Rechazar
                   </button>
                 </div>
               </div>
@@ -632,7 +693,7 @@ const Offers: React.FC = () => {
           </div>
         )}
 
-        {/* Modal: �xito */}
+        {/* Modal: Éxito */}
         {showSuccessModal && selectedOffer && (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setShowSuccessModal(false)}>
             <div className="min-h-screen px-4 flex items-center justify-center py-8">
@@ -649,27 +710,27 @@ const Offers: React.FC = () => {
                 {/* Content */}
                 <div className="text-center mb-6">
                   <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-                    �Proceso Iniciado!
+                    ¡Proceso Iniciado!
                   </h3>
                   <p className="text-slate-600 dark:text-slate-400 mb-4">
-                    Has aceptado entrar al proceso de contrataci�n con <strong>{selectedOffer.companyName}</strong>
+                    Has aceptado entrar al proceso de contratación con <strong>{selectedOffer.companyName}</strong>
                   </p>
 
                   <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800 mb-4">
                     <p className="text-sm text-green-900 dark:text-green-100 font-medium mb-2">
-                      ?? Pr�ximos pasos:
+                      🚀 Próximos pasos:
                     </p>
                     <ul className="text-sm text-green-800 dark:text-green-200 space-y-1 text-left">
-                      <li>� Recibir�s un email de confirmaci�n</li>
-                      <li>� El equipo de RH preparar� tu contrato</li>
-                      <li>� Te enviar�n documentos para revisi�n</li>
-                      <li>� Podr�s revisar t�rminos antes de firmar</li>
-                      <li>� Se coordinar� tu fecha de inicio</li>
+                      <li>• Recibirás un email de confirmación</li>
+                      <li>• El equipo de RH preparará tu contrato</li>
+                      <li>• Te enviarán documentos para revisión</li>
+                      <li>• Podrás revisar términos antes de firmar</li>
+                      <li>• Se coordinará tu fecha de inicio</li>
                     </ul>
                   </div>
 
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Puedes ver el estado en la secci�n "Aceptadas"
+                    Puedes ver el estado en la sección "Aceptadas"
                   </p>
                 </div>
 
