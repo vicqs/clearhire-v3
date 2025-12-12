@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Crown, Award, Lock, Zap, Check } from 'lucide-react';
 import { useHapticFeedback } from '../hooks/useHapticFeedback';
 import { PullToRefresh } from '../components/core/PullToRefresh';
-import { mockBadges } from '../services/mock/mockData';
+import type { Badge } from '../types/profile';
+import { dataService } from '../services/dataService';
+import { supabase } from '../lib/supabase';
 import Modal from '../components/core/Modal';
 
 const Badges: React.FC = () => {
@@ -11,10 +13,50 @@ const Badges: React.FC = () => {
   const { triggerHaptic } = useHapticFeedback();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentStep, setPaymentStep] = useState<'info' | 'payment' | 'success'>('info');
+  const [badges, setBadges] = useState<Badge[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Cargar badges
+  const fetchBadges = async () => {
+    try {
+      if (!supabase) {
+        throw new Error('Supabase client not initialized');
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // En un sistema real, primero buscaríamos el perfil_id con el user_id
+        // Para simplificar, asumiremos que dataService maneja esto o pasamos el user.id y el servicio resuelve
+        // Pero dataService.getBadges espera profileId.
+        // Vamos a hacer una pequeña trampa por ahora y pasar el user.id esperando que el servicio lo maneje
+        // O mejor, obtengamos el perfil primero.
+        try {
+          const profile = await dataService.getProfile(user.id);
+          if (profile && profile.id) {
+            const userBadges = await dataService.getBadges(profile.id); // Asumiendo profile.id es available
+            setBadges(userBadges);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        // Fallback a mock si no hay usuario (caso desarrollo offline)
+        const { mockBadges } = await import('../services/mock/mockData');
+        setBadges(mockBadges);
+      }
+    } catch (error) {
+      console.error('Error cargando badges:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBadges();
+  }, []);
 
   const handleRefresh = async () => {
     triggerHaptic('medium');
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await fetchBadges();
     triggerHaptic('success');
   };
 
@@ -72,7 +114,7 @@ const Badges: React.FC = () => {
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl p-4 text-center">
               <Award className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{mockBadges.length}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{badges.length}</p>
               <p className="text-xs text-slate-600 dark:text-slate-400">Ganadas</p>
             </div>
             <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl p-4 text-center">
@@ -141,14 +183,14 @@ const Badges: React.FC = () => {
             </button>
             <p className="text-center text-xs text-slate-600 dark:text-slate-400 mt-3">Cancela en cualquier momento • Sin compromisos</p>
           </div>
-          
+
           {/* Sección de pago integrada */}
           <div id="payment-section" className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-lg">
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">Método de Pago</h2>
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
               Completa tu suscripción a Fast Pass Premium por solo $5/mes
             </p>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -160,7 +202,7 @@ const Badges: React.FC = () => {
                   className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -183,7 +225,7 @@ const Badges: React.FC = () => {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                   Nombre en la tarjeta
@@ -194,7 +236,7 @@ const Badges: React.FC = () => {
                   className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
-              
+
               <button
                 onClick={handlePaymentConfirm}
                 className="w-full px-6 py-4 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white font-bold rounded-xl transition-all active:scale-95 shadow-lg hover:shadow-xl touch-target flex items-center justify-center gap-2"
@@ -204,7 +246,7 @@ const Badges: React.FC = () => {
                 </svg>
                 Pagar $5/mes de forma segura
               </button>
-              
+
               <div className="flex items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                 <span className="flex items-center gap-1">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -224,7 +266,7 @@ const Badges: React.FC = () => {
           <div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">Insignias Ganadas</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {mockBadges.map(badge => (
+              {badges.map(badge => (
                 <div
                   key={badge.id}
                   className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl p-6 border border-slate-200 dark:border-slate-700 hover:scale-105 transition-transform aspect-square flex flex-col items-center justify-center"

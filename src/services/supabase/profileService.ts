@@ -45,6 +45,7 @@ export class ProfileService {
 
       // Mapear a tipo Profile
       return {
+        id: profileData.id,
         personalInfo: {
           firstName: profileData.first_name,
           lastName: profileData.last_name,

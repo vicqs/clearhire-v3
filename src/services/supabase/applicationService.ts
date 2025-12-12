@@ -88,10 +88,22 @@ export class ApplicationService {
     }
 
     try {
+      // Obtener profile_id necesario para RLS
+      const { data: profile } = await supabase!
+        .from('profiles')
+        .select('id')
+        .eq('user_id', application.candidateId)
+        .single();
+
+      if (!profile) {
+        throw new Error('No se encontró perfil para el usuario. Asegúrate de completar tu perfil primero.');
+      }
+
       // Insertar aplicación
       const { data: appData, error: appError } = await supabase!
         .from('applications')
         .insert({
+          profile_id: profile.id,
           candidate_id: application.candidateId,
           job_id: application.jobId,
           company: application.company,
@@ -235,7 +247,7 @@ export class ApplicationService {
         .neq('id', excludeApplicationId)
         .in('status', [
           'active', 'screening', 'interview_scheduled', 'interview_completed',
-          'technical_evaluation', 'reference_check', 'finalist', 
+          'technical_evaluation', 'reference_check', 'finalist',
           'background_check', 'offer_pending', 'offer_negotiating'
         ]);
 
@@ -261,7 +273,7 @@ export class ApplicationService {
         .neq('id', excludeApplicationId)
         .in('status', [
           'active', 'screening', 'interview_scheduled', 'interview_completed',
-          'technical_evaluation', 'reference_check', 'finalist', 
+          'technical_evaluation', 'reference_check', 'finalist',
           'background_check', 'offer_pending', 'offer_negotiating'
         ]);
 

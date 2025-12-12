@@ -10,50 +10,73 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useApplications } from '../hooks/useApplications';
 import { useProfile } from '../hooks/useProfile';
 import { DebugSidebar } from '../components/debug/DebugSidebar';
-import { mockBadges } from '../services/mock/mockData';
 import type { TimeSlot } from '../types/profile';
 import type { ApplicationStatus } from '../types/application';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { triggerHaptic } = useHapticFeedback();
-  
+
   // 🔥 Usar hooks de Supabase
   const { applications, loading: appsLoading, updateApplication } = useApplications();
   const { profile, loading: profileLoading } = useProfile();
-  
+
   const [selectedApplicationId, setSelectedApplicationId] = useState<string>('');
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | 'all'>('all');
   const [confirmedInterviewDates, setConfirmedInterviewDates] = useState<Record<string, Date>>({});
   const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
-  
+
   // Hook de notificaciones
-  const candidateId = 'candidate_1';
-  const { 
-    unreadCount, 
-    analytics, 
-    sendStatusChangeNotification, 
+  // Obtener ID real del usuario para RLS
+  const [candidateId, setCandidateId] = useState<string>('candidate_1');
+
+  React.useEffect(() => {
+    const getUserId = async () => {
+      // Importación dinámica para evitar ciclos
+      const { dataService } = await import('../services/dataService');
+      const userId = dataService.getCurrentUserId();
+      if (userId && userId !== 'mock-user') {
+        setCandidateId(userId);
+      }
+    };
+    getUserId();
+  }, []);
+
+  const {
+    unreadCount,
+    analytics,
+    sendStatusChangeNotification,
     scheduleInterviewReminder,
     sendDeadlineAlert,
     sendFeedbackNotification,
-    clearAllNotifications 
+    clearAllNotifications
   } = useNotifications(candidateId);
-  
-  // Seleccionar primera aplicación cuando se carguen
+
+  // Cargar badges reales
+  const [badges, setBadges] = React.useState<any[]>([]);
+
   React.useEffect(() => {
-    if (applications.length > 0 && !selectedApplicationId) {
-      setSelectedApplicationId(applications[0].id);
-    }
-  }, [applications, selectedApplicationId]);
-  
-  const selectedApplication = applications.find(app => app.id === selectedApplicationId) || applications[0];
+    const fetchBadges = async () => {
+      try {
+        if (profile && profile.id) {
+          // Importación dinámica para romper ciclo si es necesario, o uso directo si dataService está importado
+          const { dataService } = await import('../services/dataService');
+          const userBadges = await dataService.getBadges(profile.id);
+          setBadges(userBadges);
+        }
+      } catch (error) {
+        console.error('Error fetching badges for dashboard:', error);
+      }
+    };
+    fetchBadges();
+  }, [profile]);
 
   // Filter applications based on status
-  const filteredApplications = statusFilter === 'all' 
-    ? applications 
+  const filteredApplications = statusFilter === 'all'
+    ? applications
     : applications.filter(app => app.status === statusFilter);
-  
+
   // Mostrar loading
   if (appsLoading || profileLoading) {
     return (
@@ -73,7 +96,7 @@ const Dashboard: React.FC = () => {
       ...prev,
       [selectedApplicationId]: slot.date
     }));
-    
+
     // 🔥 Guardar en Supabase
     try {
       await updateApplication(selectedApplicationId, {
@@ -104,8 +127,8 @@ const Dashboard: React.FC = () => {
     triggerHaptic('light');
     setStatusFilter(status);
     // Select first application of that status
-    const firstApp = status === 'all' 
-      ? applications[0] 
+    const firstApp = status === 'all'
+      ? applications[0]
       : applications.find(app => app.status === status);
     if (firstApp) {
       setSelectedApplicationId(firstApp.id);
@@ -122,33 +145,6 @@ const Dashboard: React.FC = () => {
     setNotificationCenterOpen(true);
   };
 
-  // Función para simular cambios de estado (para demostración)
-  const simulateStatusChange = async (newStatus: ApplicationStatus) => {
-    const app = selectedApplication;
-    const oldStatus = app.status;
-    
-    if (oldStatus !== newStatus) {
-      triggerHaptic('success');
-      
-      // Enviar notificación automática
-      if (profile) {
-        await sendStatusChangeNotification(
-          candidateId,
-          app.id,
-          oldStatus,
-          newStatus,
-          {
-            candidateName: `${profile.personalInfo.firstName} ${profile.personalInfo.lastName}`,
-            positionTitle: app.position,
-            companyName: app.company,
-            recruiterName: 'Ana García'
-          }
-        );
-      }
-      
-      console.log(`📱 Notificación enviada: ${oldStatus} → ${newStatus}`);
-    }
-  };
 
   const profileCompletion = profile ? Math.round(
     (profile.personalInfo.firstName ? 20 : 0) +
@@ -182,7 +178,7 @@ const Dashboard: React.FC = () => {
                   </p>
                   <p className="text-xs text-slate-600 dark:text-slate-400">{profile?.personalInfo.email}</p>
                 </div>
-                
+
                 {/* Notifications Icon */}
                 <button
                   onClick={handleNotificationClick}
@@ -218,11 +214,10 @@ const Dashboard: React.FC = () => {
               {/* Active Applications Card */}
               <button
                 onClick={() => handleStatusFilterClick('active')}
-                className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl p-5 border-2 transition-all hover:scale-105 active:scale-95 cursor-pointer text-left ${
-                  statusFilter === 'active' 
-                    ? 'border-primary-500 shadow-lg shadow-primary-200' 
-                    : 'border-slate-200 dark:border-slate-700 hover:border-primary-300'
-                }`}
+                className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl p-5 border-2 transition-all hover:scale-105 active:scale-95 cursor-pointer text-left ${statusFilter === 'active'
+                  ? 'border-primary-500 shadow-lg shadow-primary-200'
+                  : 'border-slate-200 dark:border-slate-700 hover:border-primary-300'
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -242,11 +237,10 @@ const Dashboard: React.FC = () => {
               {/* Approved Applications Card */}
               <button
                 onClick={() => handleStatusFilterClick('approved')}
-                className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl p-5 border-2 transition-all hover:scale-105 active:scale-95 cursor-pointer text-left ${
-                  statusFilter === 'approved' 
-                    ? 'border-success-500 shadow-lg shadow-success-200' 
-                    : 'border-slate-200 dark:border-slate-700 hover:border-success-300'
-                }`}
+                className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-2xl p-5 border-2 transition-all hover:scale-105 active:scale-95 cursor-pointer text-left ${statusFilter === 'approved'
+                  ? 'border-success-500 shadow-lg shadow-success-200'
+                  : 'border-slate-200 dark:border-slate-700 hover:border-success-300'
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -335,7 +329,7 @@ const Dashboard: React.FC = () => {
                 {profile && (
                   <GamificationPanel
                     profile={profile}
-                    badges={mockBadges}
+                    badges={badges}
                     hasFastPass={false}
                     onSubscribe={() => alert('Redirigiendo a suscripción Fast Pass...')}
                   />
@@ -368,7 +362,80 @@ const Dashboard: React.FC = () => {
         />
 
         {/* Debug Sidebar (solo desarrollo) */}
-        {import.meta.env.DEV && <DebugSidebar />}
+        {import.meta.env.DEV && (
+          <DebugSidebar
+            onSimulateStatusChange={(status) => {
+              const targetAppId = selectedApplicationId || applications[0]?.id;
+              if (!targetAppId) {
+                console.warn('No hay aplicaciones disponibles para simular');
+                return;
+              }
+
+              const targetApp = applications.find(a => a.id === targetAppId);
+
+              sendStatusChangeNotification(
+                candidateId,
+                targetAppId,
+                'screening',
+                status as any,
+                {
+                  positionTitle: targetApp?.position || 'Desarrollador React',
+                  companyName: targetApp?.company || 'TechCorp',
+                  candidateName: profile?.personalInfo.firstName || 'Candidato',
+                  recruiterName: 'Recruiter Demo'
+                }
+              );
+            }}
+            onScheduleInterviewReminder={() => {
+              const targetAppId = selectedApplicationId || applications[0]?.id;
+              if (!targetAppId) return;
+
+              const targetApp = applications.find(a => a.id === targetAppId);
+
+              scheduleInterviewReminder(
+                targetAppId,
+                new Date(Date.now() + 86400000), // Mañana
+                {
+                  candidateName: profile?.personalInfo.firstName || 'Candidato',
+                  positionTitle: targetApp?.position || 'Desarrollador React',
+                  companyName: targetApp?.company || 'TechCorp',
+                  recruiterName: 'Recruiter Demo',
+                  interviewMode: 'Virtual'
+                }
+              );
+            }}
+            onSendDeadlineAlert={() => {
+              const targetAppId = selectedApplicationId || applications[0]?.id;
+              if (!targetAppId) return;
+
+              const targetApp = applications.find(a => a.id === targetAppId);
+
+              sendDeadlineAlert(
+                targetAppId,
+                'document_upload',
+                new Date(Date.now() + 172800000), // 2 días
+                {
+                  positionTitle: targetApp?.position || 'Desarrollador React'
+                }
+              );
+            }}
+            onSendFeedbackNotification={() => {
+              const targetAppId = selectedApplicationId || applications[0]?.id;
+              if (!targetAppId) return;
+
+              const targetApp = applications.find(a => a.id === targetAppId);
+
+              sendFeedbackNotification(
+                targetAppId,
+                {
+                  candidateName: profile?.personalInfo.firstName || 'Candidato',
+                  positionTitle: targetApp?.position || 'Desarrollador React',
+                  companyName: targetApp?.company || 'TechCorp'
+                }
+              );
+            }}
+          />
+        )}
       </div>
     </PullToRefresh>
   );

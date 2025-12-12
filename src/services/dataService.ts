@@ -38,10 +38,11 @@ class DataService {
    * Obtener usuario actual (con fallback)
    */
   getCurrentUserId(): string {
-    // Importación dinámica para evitar dependencias circulares
+    // Intentar obtener del almacenamiento local o sesión
     try {
-      const { authService } = require('./authService');
-      return authService.getCurrentUserId() || 'mock-user';
+      const user = localStorage.getItem('supabase.auth.token');
+      if (user) return JSON.parse(user).currentSession?.user?.id || 'mock-user';
+      return 'mock-user';
     } catch {
       return 'mock-user';
     }
@@ -126,8 +127,8 @@ class DataService {
    */
   async getBadges(profileId: string): Promise<Badge[]> {
     if (this.mode === 'supabase') {
-      // TODO: Implementar cuando se necesite
-      return mockBadges;
+      const { badgeService } = await import('./supabase/badgeService');
+      return await badgeService.getBadges(profileId);
     }
     return mockBadges;
   }
@@ -139,10 +140,20 @@ class DataService {
    */
   async getOffers(candidateId: string): Promise<JobOffer[]> {
     if (this.mode === 'supabase') {
-      // TODO: Implementar cuando se necesite
-      return [];
+      const { offerService } = await import('./supabase/offerService');
+      return await offerService.getOffers(candidateId);
     }
     return [];
+  }
+
+  /**
+   * Actualizar estado de una oferta
+   */
+  async updateOfferStatus(offerId: string, status: string): Promise<void> {
+    if (this.mode === 'supabase') {
+      const { offerService } = await import('./supabase/offerService');
+      await offerService.updateOfferStatus(offerId, status);
+    }
   }
 
   // ==================== MÉTODOS DE ACEPTACIÓN DE PROPUESTAS ====================

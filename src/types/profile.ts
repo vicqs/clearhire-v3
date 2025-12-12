@@ -51,6 +51,7 @@ export interface Reference {
 }
 
 export interface Profile {
+  id?: string;
   personalInfo: PersonalInfo;
   experience: WorkExperience[];
   education: Education[];

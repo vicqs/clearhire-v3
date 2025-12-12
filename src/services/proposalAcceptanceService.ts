@@ -22,12 +22,12 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
    * Acepta una propuesta laboral y ejecuta todo el flujo de seguimiento
    */
   async acceptProposal(
-    proposalId: string, 
-    candidateId: string, 
+    proposalId: string,
+    candidateId: string,
     acceptanceData: AcceptanceData
   ): Promise<AcceptanceResult> {
     console.log(`🎯 Iniciando aceptación de propuesta ${proposalId} para candidato ${candidateId}`);
-    
+
     try {
       // 1. Validar la propuesta antes de proceder
       const validation = await this.validateAcceptance(proposalId, candidateId);
@@ -50,13 +50,13 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
 
       // 3. Ejecutar transacción completa
       const result = await this.executeAcceptanceTransaction(proposalId, candidateId, acceptanceData);
-      
+
       console.log(`✅ Propuesta ${proposalId} aceptada exitosamente`);
       return result;
 
     } catch (error) {
       console.error(`❌ Error aceptando propuesta ${proposalId}:`, error);
-      
+
       // Ejecutar rollback si hay contexto de transacción
       if (this.transactionContext && !this.transactionContext.rollbackExecuted) {
         await this.executeRollback();
@@ -82,7 +82,7 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
     try {
       // 1. Verificar que la propuesta existe
       const applications = await dataService.getApplications(candidateId);
-      const targetApplication = applications.find(app => 
+      const targetApplication = applications.find(app =>
         app.offerDetails && app.id === proposalId
       );
 
@@ -97,13 +97,13 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
       }
 
       // 3. Verificar que la oferta no ha expirado
-      if (targetApplication.offerDetails?.expiresAt && 
-          new Date(targetApplication.offerDetails.expiresAt) < new Date()) {
+      if (targetApplication.offerDetails?.expiresAt &&
+        new Date(targetApplication.offerDetails.expiresAt) < new Date()) {
         errors.push('La oferta ha expirado y no puede ser aceptada');
       }
 
       // 4. Verificar exclusividad - si ya tiene una oferta aceptada
-      const hasAcceptedOffer = applications.some(app => 
+      const hasAcceptedOffer = applications.some(app =>
         app.status === 'offer_accepted' && app.id !== proposalId
       );
 
@@ -112,7 +112,7 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
       }
 
       // 5. Advertencias (no bloquean la aceptación)
-      const pendingOffers = applications.filter(app => 
+      const pendingOffers = applications.filter(app =>
         app.status === 'offer_pending' && app.id !== proposalId
       );
 
@@ -153,10 +153,10 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
       name: 'updateMainApplication',
       execute: async () => {
         console.log('📝 Actualizando aplicación principal...');
-        
+
         const applications = await dataService.getApplications(candidateId);
         const application = applications.find(app => app.id === proposalId);
-        
+
         if (!application) {
           throw new Error('Aplicación no encontrada');
         }
@@ -190,7 +190,7 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
         updates.acceptanceHistory = [acceptanceEntry];
 
         await dataService.updateApplication(proposalId, updates);
-        
+
         // Obtener aplicación actualizada
         updatedApplication = { ...application, ...updates };
         console.log('✅ Aplicación principal actualizada');
@@ -226,7 +226,7 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
       name: 'createTrackingEvent',
       execute: async () => {
         console.log('📊 Creando evento de seguimiento...');
-        
+
         const trackingEvent: TrackingEvent = {
           id: `tracking-${Date.now()}`,
           applicationId: proposalId,
@@ -244,11 +244,18 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
           }
         };
 
-        // En modo mock, solo loggeamos
-        if (!dataService.isSupabaseMode()) {
+        if (dataService.isSupabaseMode()) {
+          try {
+            // Importación dinámica para evitar ciclos
+            const { applicationService } = await import('./supabase/applicationService');
+            await applicationService.createTrackingEntry(proposalId, trackingEvent);
+          } catch (e) {
+            console.error('Error guardando tracking event:', e);
+          }
+        } else {
           console.log('📦 Mock: Evento de seguimiento creado', trackingEvent);
         }
-        
+
         console.log('✅ Evento de seguimiento creado');
       },
       rollback: async () => {
@@ -284,16 +291,16 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
     }
 
     console.log('🔄 Ejecutando rollback de transacción...');
-    
+
     try {
       // Ejecutar rollback en orden inverso
       for (let i = this.transactionContext.currentStep; i >= 0; i--) {
         await this.transactionContext.steps[i].rollback();
       }
-      
+
       this.transactionContext.rollbackExecuted = true;
       console.log('✅ Rollback completado');
-      
+
     } catch (rollbackError) {
       console.error('❌ Error durante rollback:', rollbackError);
       // En un sistema real, esto requeriría intervención manual
@@ -305,11 +312,11 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
    */
   async rollbackAcceptance(acceptanceId: string): Promise<void> {
     console.log(`🔄 Iniciando rollback manual de aceptación ${acceptanceId}`);
-    
+
     try {
       // En implementación real, buscaríamos la aceptación por ID y revertiríamos todos los cambios
       console.log('📦 Mock: Rollback manual ejecutado');
-      
+
     } catch (error) {
       console.error('❌ Error en rollback manual:', error);
       throw error;
@@ -336,10 +343,10 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
   private async withdrawOtherApplications(candidateId: string, excludeApplicationId: string): Promise<void> {
     try {
       const applications = await dataService.getApplications(candidateId);
-      
+
       // Filtrar aplicaciones que deben ser retiradas
-      const applicationsToWithdraw = applications.filter(app => 
-        app.id !== excludeApplicationId && 
+      const applicationsToWithdraw = applications.filter(app =>
+        app.id !== excludeApplicationId &&
         this.shouldWithdrawApplication(app.status)
       );
 
@@ -363,7 +370,7 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
     // Estados que deben ser retirados cuando se acepta otra oferta
     const withdrawableStates: ApplicationStatus[] = [
       'active',
-      'screening', 
+      'screening',
       'interview_scheduled',
       'interview_completed',
       'technical_evaluation',
@@ -413,7 +420,7 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
       updates.trackingEvents = [...existingEvents, trackingEvent];
 
       await dataService.updateApplication(application.id, updates);
-      
+
       console.log(`✅ Aplicación ${application.id} retirada exitosamente`);
 
     } catch (error) {
@@ -432,16 +439,16 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
   }> {
     try {
       const applications = await dataService.getApplications(candidateId);
-      
+
       // Buscar aplicación exclusiva (oferta aceptada)
-      const exclusiveApplication = applications.find(app => 
-        app.status === 'offer_accepted' || 
-        app.status === 'approved' || 
+      const exclusiveApplication = applications.find(app =>
+        app.status === 'offer_accepted' ||
+        app.status === 'approved' ||
         app.status === 'hired'
       );
 
       // Contar aplicaciones pendientes
-      const pendingApplications = applications.filter(app => 
+      const pendingApplications = applications.filter(app =>
         this.shouldWithdrawApplication(app.status)
       );
 
