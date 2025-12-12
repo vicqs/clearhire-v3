@@ -9,8 +9,10 @@ export interface UseAutoSaveOptions<T> {
   delay?: number;
 }
 
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 export interface UseAutoSaveReturn {
-  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  saveStatus: SaveStatus;
   lastSaved: Date | null;
   error: Error | null;
   forceSave: () => Promise<void>;
@@ -21,7 +23,7 @@ export function useAutoSave<T>({
   onSave,
   delay = 5000
 }: UseAutoSaveOptions<T>): UseAutoSaveReturn {
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [error, setError] = useState<Error | null>(null);
 

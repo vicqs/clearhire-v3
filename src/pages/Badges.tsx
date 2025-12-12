@@ -14,7 +14,7 @@ const Badges: React.FC = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentStep, setPaymentStep] = useState<'info' | 'payment' | 'success'>('info');
   const [badges, setBadges] = useState<Badge[]>([]);
-  const [loading, setLoading] = useState(true);
+  // loading removed as unused
 
   // Cargar badges
   const fetchBadges = async () => {
@@ -46,7 +46,7 @@ const Badges: React.FC = () => {
     } catch (error) {
       console.error('Error cargando badges:', error);
     } finally {
-      setLoading(false);
+      // loading state removed
     }
   };
 

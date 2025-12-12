@@ -36,15 +36,12 @@ export async function testSupabaseConnection() {
   // 3. Probar conexión básica
   console.log('🌐 Probando conexión...');
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('count')
-      .limit(1);
+    const { error } = await supabase.from('notifications').select('count', { count: 'exact', head: true });
 
     if (error) {
       console.log('❌ Error de conexión:', error.message);
       console.log('');
-      
+
       if (error.message.includes('Invalid API key')) {
         console.log('🔑 La API key es inválida');
         console.log('');

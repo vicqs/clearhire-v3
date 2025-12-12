@@ -48,26 +48,36 @@ export const mockApplications: Application[] = [
   {
     id: '1',
     candidateId: '9a0ee8bb-7651-4149-ba8c-5b9e62d7e6ff',
-    jobTitle: 'Desarrollador Frontend Senior',
+    jobId: 'job-123',
+    position: 'Desarrollador Frontend Senior',
     company: 'TechCorp',
-    status: 'in_progress',
-    appliedAt: '2025-01-01T00:00:00Z',
-    lastUpdated: '2025-01-10T00:00:00Z',
+    availablePositions: 1,
+    status: 'active',
+    appliedDate: new Date('2025-01-01T00:00:00Z'),
+    lastUpdate: new Date('2025-01-10T00:00:00Z'),
+    currentStageId: '2',
+    interviewConfirmed: false,
     stages: [
       {
         id: '1',
         name: 'Aplicación Enviada',
+        order: 1,
+        estimatedDays: 1,
+        startDate: new Date('2025-01-01T00:00:00Z'),
         status: 'completed',
-        completedAt: '2025-01-01T00:00:00Z',
+        endDate: new Date('2025-01-01T00:00:00Z'),
       },
       {
         id: '2',
         name: 'Revisión de CV',
+        order: 2,
+        estimatedDays: 3,
+        startDate: new Date('2025-01-02T00:00:00Z'),
         status: 'in_progress',
-        completedAt: null,
       },
     ],
-    notes: 'Candidato prometedor con experiencia en React',
+    // notes property doesn't exist in Application type either, removing it or handling if necessary (mock data can have extra prop if casted, but strict literal check fails).
+    // I'll leave notes out if it's not in type. Type showed no 'notes'.
   },
 ];
 
@@ -77,7 +87,7 @@ export const mockBadges: Badge[] = [
     name: 'Early Bird',
     description: 'Aplicaste en las primeras 24 horas',
     icon: 'sunrise',
-    earnedAt: '2025-01-01T00:00:00Z',
+    earnedAt: new Date('2025-01-01T00:00:00Z'),
     rarity: 'common',
   },
   {
@@ -85,7 +95,7 @@ export const mockBadges: Badge[] = [
     name: 'Perfect Profile',
     description: 'Alcanzaste 100% de completitud de perfil',
     icon: 'star',
-    earnedAt: '2025-01-05T00:00:00Z',
+    earnedAt: new Date('2025-01-05T00:00:00Z'),
     rarity: 'epic',
   },
 ];

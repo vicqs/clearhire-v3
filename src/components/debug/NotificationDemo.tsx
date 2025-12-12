@@ -1,16 +1,8 @@
 /**
  * Demo de Notificaciones para Debug
  */
-import React, { useState } from 'react';
-import { Bell, Send, CheckCircle, AlertCircle, Info, X } from 'lucide-react';
-
-interface DemoNotification {
-  id: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-  title: string;
-  message: string;
-  timestamp: Date;
-}
+import React from 'react';
+import { Bell } from 'lucide-react';
 
 interface NotificationDemoProps {
   onSimulateStatusChange?: (status: string) => void;
@@ -25,90 +17,6 @@ export const NotificationDemo: React.FC<NotificationDemoProps> = ({
   onSendDeadlineAlert,
   onSendFeedbackNotification
 }) => {
-  const [notifications, setNotifications] = useState<DemoNotification[]>([]);
-  const [selectedType, setSelectedType] = useState<'success' | 'error' | 'info' | 'warning'>('info');
-
-  const notificationTypes = [
-    { value: 'success', label: 'Éxito', icon: CheckCircle, color: 'text-green-600' },
-    { value: 'error', label: 'Error', icon: AlertCircle, color: 'text-red-600' },
-    { value: 'info', label: 'Info', icon: Info, color: 'text-blue-600' },
-    { value: 'warning', label: 'Advertencia', icon: AlertCircle, color: 'text-yellow-600' }
-  ] as const;
-
-  const demoMessages = {
-    success: [
-      { title: 'Perfil guardado', message: 'Tu perfil se ha actualizado correctamente' },
-      { title: 'Aplicación enviada', message: 'Tu aplicación ha sido enviada exitosamente' },
-      { title: 'Entrevista confirmada', message: 'Has confirmado tu entrevista para mañana' }
-    ],
-    error: [
-      { title: 'Error de conexión', message: 'No se pudo conectar con el servidor' },
-      { title: 'Archivo muy grande', message: 'El CV debe ser menor a 5MB' },
-      { title: 'Campos requeridos', message: 'Por favor completa todos los campos obligatorios' }
-    ],
-    info: [
-      { title: 'Nueva funcionalidad', message: 'Ahora puedes exportar tu perfil en PDF' },
-      { title: 'Recordatorio', message: 'Tienes una entrevista programada para mañana' },
-      { title: 'Actualización', message: 'Se ha actualizado el sistema de notificaciones' }
-    ],
-    warning: [
-      { title: 'Perfil incompleto', message: 'Completa tu perfil para mejorar tus oportunidades' },
-      { title: 'Sesión expirando', message: 'Tu sesión expirará en 5 minutos' },
-      { title: 'Verificación pendiente', message: 'Verifica tu email para activar todas las funciones' }
-    ]
-  };
-
-  const sendTestNotification = () => {
-    const messages = demoMessages[selectedType];
-    const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-
-    const newNotification: DemoNotification = {
-      id: `demo-${Date.now()}`,
-      type: selectedType,
-      title: randomMessage.title,
-      message: randomMessage.message,
-      timestamp: new Date()
-    };
-
-    setNotifications(prev => [newNotification, ...prev.slice(0, 4)]); // Mantener solo 5 notificaciones
-
-    // Simular notificación del navegador si está permitido
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(randomMessage.title, {
-        body: randomMessage.message,
-        icon: '/favicon.ico'
-      });
-    }
-  };
-
-  const requestNotificationPermission = async () => {
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        console.log('✅ Permisos de notificación concedidos');
-      }
-    }
-  };
-
-  const clearNotifications = () => {
-    setNotifications([]);
-  };
-
-  const removeNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
-
-  const getNotificationIcon = (type: string) => {
-    const typeConfig = notificationTypes.find(t => t.value === type);
-    if (!typeConfig) return Info;
-    return typeConfig.icon;
-  };
-
-  const getNotificationColor = (type: string) => {
-    const typeConfig = notificationTypes.find(t => t.value === type);
-    return typeConfig?.color || 'text-gray-600';
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-4">

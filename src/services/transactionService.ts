@@ -3,7 +3,7 @@
  * Maneja operaciones atómicas con capacidad de rollback automático
  */
 
-import { auditService } from './auditService';
+
 import type { TransactionStep, TransactionContext } from '../types/tracking';
 
 export interface TransactionConfig {
@@ -39,7 +39,7 @@ class TransactionService {
     context?: Record<string, any>
   ): Promise<TransactionResult<T>> {
     const startTime = Date.now();
-    
+
     if (this.config.enableLogging) {
       console.log(`🔄 Iniciando transacción: ${transactionId} (${steps.length} pasos)`);
     }
@@ -54,7 +54,7 @@ class TransactionService {
       // Ejecutar pasos secuencialmente
       for (let i = 0; i < steps.length; i++) {
         transactionContext.currentStep = i;
-        
+
         if (this.config.enableLogging) {
           console.log(`📝 Ejecutando paso ${i + 1}/${steps.length}: ${steps[i].name}`);
         }
@@ -63,7 +63,7 @@ class TransactionService {
       }
 
       const duration = Date.now() - startTime;
-      
+
       if (this.config.enableLogging) {
         console.log(`✅ Transacción completada: ${transactionId} (${duration}ms)`);
       }
@@ -81,12 +81,12 @@ class TransactionService {
     } catch (error) {
       const duration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      
+
       console.error(`❌ Error en transacción ${transactionId}:`, errorMessage);
 
       // Ejecutar rollback
       const rollbackSuccess = await this.executeRollback(transactionContext, transactionId);
-      
+
       // Registrar fallo en auditoría
       await this.logTransactionResult(transactionId, 'failed', transactionContext.currentStep + 1, context, errorMessage);
 
@@ -113,12 +113,12 @@ class TransactionService {
     }
 
     console.log(`🔄 Ejecutando rollback para transacción: ${transactionId}`);
-    
+
     try {
       // Ejecutar rollback en orden inverso
       for (let i = context.currentStep; i >= 0; i--) {
         const step = context.steps[i];
-        
+
         if (this.config.enableLogging) {
           console.log(`🔙 Rollback paso ${i + 1}: ${step.name}`);
         }
@@ -132,7 +132,7 @@ class TransactionService {
       }
 
       context.rollbackExecuted = true;
-      
+
       if (this.config.enableLogging) {
         console.log(`✅ Rollback completado para transacción: ${transactionId}`);
       }
@@ -204,14 +204,14 @@ class TransactionService {
     context?: Record<string, any>
   ): Promise<TransactionResult<T>> {
     let lastResult: TransactionResult<T> | null = null;
-    
+
     for (let attempt = 1; attempt <= this.config.maxRetries; attempt++) {
       if (this.config.enableLogging && attempt > 1) {
         console.log(`🔄 Intento ${attempt}/${this.config.maxRetries} para transacción: ${transactionId}`);
       }
 
       lastResult = await this.executeTransaction<T>(transactionId, steps, context);
-      
+
       if (lastResult.success) {
         return lastResult;
       }
@@ -219,11 +219,11 @@ class TransactionService {
       // Si no es el último intento, esperar antes del siguiente
       if (attempt < this.config.maxRetries) {
         const delay = this.config.retryDelayMs * Math.pow(2, attempt - 1); // Backoff exponencial
-        
+
         if (this.config.enableLogging) {
           console.log(`⏳ Esperando ${delay}ms antes del siguiente intento...`);
         }
-        
+
         await this.delay(delay);
       }
     }
@@ -275,7 +275,7 @@ class TransactionService {
   ): Promise<TransactionResult<T[]>> {
     const id = transactionId || `batch-${Date.now()}`;
     const results: T[] = [];
-    
+
     const steps: TransactionStep[] = operations.map((op, index) => ({
       name: op.name,
       execute: async () => {
@@ -286,7 +286,7 @@ class TransactionService {
     }));
 
     const transactionResult = await this.executeTransaction<T[]>(id, steps);
-    
+
     if (transactionResult.success) {
       transactionResult.result = results;
     }
@@ -306,7 +306,7 @@ class TransactionService {
    */
   updateConfig(newConfig: Partial<TransactionConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    
+
     if (this.config.enableLogging) {
       console.log('⚙️ Configuración de transacciones actualizada:', this.config);
     }

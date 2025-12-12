@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // Mock del módulo authHelper
@@ -27,7 +27,7 @@ describe('AuthDebugPanel', () => {
   it('should render mock component', () => {
     const { AuthDebugPanel } = require('../../../src/components/auth/AuthDebugPanel');
     render(<AuthDebugPanel />);
-    
+
     expect(screen.getByTestId('auth-debug-panel')).toBeInTheDocument();
     expect(screen.getByText('Mock AuthDebugPanel')).toBeInTheDocument();
   });

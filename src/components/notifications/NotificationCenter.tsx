@@ -20,7 +20,6 @@ interface NotificationCenterProps {
 const NotificationCenter: React.FC<NotificationCenterProps> = ({
   isOpen,
   onClose,
-  candidateId,
   notifications,
   analytics,
   onClearAll

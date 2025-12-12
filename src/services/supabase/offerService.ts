@@ -12,7 +12,7 @@ export class OfferService {
      * (Nota: En un sistema real, filtraríamos por candidato. 
      * Por ahora, retornamos todas las ofertas disponibles en la tabla job_offers)
      */
-    async getOffers(candidateId: string): Promise<JobOffer[]> {
+    async getOffers(_profileId: string): Promise<JobOffer[]> {
         if (!isSupabaseConfigured()) {
             return [];
         }

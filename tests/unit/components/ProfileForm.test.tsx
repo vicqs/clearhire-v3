@@ -3,7 +3,7 @@ import { mockProfile, mockProfileEmpty } from '../../fixtures/profileData';
 
 // Mock del componente ProfileForm
 vi.mock('../../../src/components/profile/ProfileForm', () => ({
-  ProfileForm: ({ profile, onUpdate, onExport }: any) => (
+  ProfileForm: ({ profile, onExport }: any) => (
     <div data-testid="profile-form">
       <div data-testid="personal-tab">Personal Info</div>
       <div data-testid="experience-tab">Experience</div>

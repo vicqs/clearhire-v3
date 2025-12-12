@@ -8,7 +8,7 @@ import type {
   ProposalAcceptanceService,
   AcceptanceData,
   AcceptanceResult,
-  ValidationResult,
+  TrackingValidationResult,
   TransactionStep,
   TransactionContext,
   TrackingEvent
@@ -75,7 +75,7 @@ class ProposalAcceptanceServiceImpl implements ProposalAcceptanceService {
   /**
    * Valida si una propuesta puede ser aceptada
    */
-  async validateAcceptance(proposalId: string, candidateId: string): Promise<ValidationResult> {
+  async validateAcceptance(proposalId: string, candidateId: string): Promise<TrackingValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
 

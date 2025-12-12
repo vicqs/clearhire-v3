@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, AlertCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { SaveStatus } from '../../../hooks/useAutoSave';
 
 interface SaveIndicatorProps {
@@ -46,12 +46,12 @@ export const SaveIndicator: React.FC<SaveIndicatorProps> = ({
         };
       case 'saved':
         return {
-          icon: <Check className="w-4 h-4" />,
+          icon: <CheckCircle className="w-4 h-4" />,
           text: lastSaved
             ? `Guardado a las ${lastSaved.toLocaleTimeString('es-ES', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}`
+              hour: '2-digit',
+              minute: '2-digit',
+            })}`
             : 'Guardado',
           bgColor: 'bg-green-50',
           textColor: 'text-green-700',

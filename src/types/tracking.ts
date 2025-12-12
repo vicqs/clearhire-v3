@@ -76,7 +76,7 @@ export interface AcceptanceResult {
   errors?: string[];
 }
 
-export interface ValidationResult {
+export interface TrackingValidationResult {
   isValid: boolean;
   errors: string[];
   warnings?: string[];
@@ -137,7 +137,7 @@ import type { Application, OfferDetails } from './application';
 // Service Interfaces
 export interface ProposalAcceptanceService {
   acceptProposal(proposalId: string, candidateId: string, acceptanceData: AcceptanceData): Promise<AcceptanceResult>;
-  validateAcceptance(proposalId: string, candidateId: string): Promise<ValidationResult>;
+  validateAcceptance(proposalId: string, candidateId: string): Promise<TrackingValidationResult>;
   rollbackAcceptance(acceptanceId: string): Promise<void>;
 }
 

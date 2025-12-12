@@ -775,7 +775,7 @@ Sistema ClearHire ATS`,
       // Factors: Read rate (50%), Read speed (30%), Low failure (20%)
       const readRate = totalSent > 0 ? totalRead / totalSent : 0;
       const readSpeedScore = Math.max(0, 100 - (averageReadTime / 60)); // 1 hour = 99, 100 hours = 0
-      const failurePenalty = totalSent > 0 ? (totalFailed / totalSent) * 100 : 0;
+
 
       const engagementScore = Math.round(
         (readRate * 50) +
@@ -873,8 +873,7 @@ Sistema ClearHire ATS`,
     candidateId: string,
     applicationId: string,
     type: string,
-    deadline: Date,
-    metadata: any
+    deadline: Date
   ): Promise<void> {
     console.log('⏰ Enviando alerta de deadline', {
       candidateId,

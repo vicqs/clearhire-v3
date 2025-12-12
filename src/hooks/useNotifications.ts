@@ -86,7 +86,7 @@ export const useNotifications = (candidateId: string): UseNotificationsReturn =>
       }
     };
 
-    const handleNotificationRead = (data: any) => {
+    const handleNotificationRead = () => {
       refreshNotifications(); // Refrescar siempre para actualizar conteos
     };
 
@@ -109,7 +109,7 @@ export const useNotifications = (candidateId: string): UseNotificationsReturn =>
     applicationId: string,
     oldStatus: ApplicationStatus,
     newStatus: ApplicationStatus,
-    metadata: {
+    _metadata: {
       positionTitle: string;
       companyName: string;
       candidateName: string;
@@ -165,15 +165,13 @@ export const useNotifications = (candidateId: string): UseNotificationsReturn =>
   const sendDeadlineAlert = useCallback(async (
     applicationId: string,
     type: 'interview_confirmation' | 'document_upload',
-    deadline: Date,
-    metadata: any
+    deadline: Date
   ) => {
     await notificationService.sendDeadlineAlert(
       candidateId,
       applicationId,
       type,
-      deadline,
-      metadata
+      deadline
     );
     setTimeout(refreshNotifications, 1000);
   }, [candidateId, refreshNotifications]);

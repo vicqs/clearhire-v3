@@ -6,7 +6,7 @@ import { AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
 import { authService } from '../../services/authService';
 
 export const SupabaseToggle: React.FC = () => {
-  const [isSupabaseEnabled, setIsSupabaseEnabled] = useState(
+  const [isSupabaseEnabled] = useState(
     import.meta.env.VITE_USE_SUPABASE === 'true'
   );
   const [isChanging, setIsChanging] = useState(false);
@@ -14,7 +14,7 @@ export const SupabaseToggle: React.FC = () => {
   const handleToggle = async () => {
     const newMode = !isSupabaseEnabled;
     const modeText = newMode ? 'Supabase' : 'Mock';
-    
+
     const confirmed = window.confirm(
       `¿Cambiar a modo ${modeText}?\n\n` +
       `Esto requiere:\n` +
@@ -22,11 +22,11 @@ export const SupabaseToggle: React.FC = () => {
       `2. Reiniciar el servidor (npm run dev)\n\n` +
       `¿Continuar?`
     );
-    
+
     if (!confirmed) return;
-    
+
     setIsChanging(true);
-    
+
     try {
       // Mostrar instrucciones
       alert(
@@ -36,12 +36,12 @@ export const SupabaseToggle: React.FC = () => {
         `3. Reinicia el servidor: Ctrl+C y npm run dev\n\n` +
         `El toggle se actualizará después del reinicio.`
       );
-      
+
       // Limpiar cache relacionado
       authService.clearConnectionIssues();
-      
+
       setIsChanging(false);
-      
+
     } catch (error) {
       console.error('Error cambiando modo:', error);
       setIsChanging(false);
@@ -68,18 +68,16 @@ export const SupabaseToggle: React.FC = () => {
             {isSupabaseEnabled ? 'Intentar usar base de datos real' : 'Usar datos locales (mock)'}
           </p>
         </div>
-        
+
         <button
           onClick={handleToggle}
           disabled={isChanging}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-            isSupabaseEnabled ? 'bg-blue-600' : 'bg-gray-300'
-          } ${isChanging ? 'opacity-50' : ''}`}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isSupabaseEnabled ? 'bg-blue-600' : 'bg-gray-300'
+            } ${isChanging ? 'opacity-50' : ''}`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              isSupabaseEnabled ? 'translate-x-6' : 'translate-x-1'
-            }`}
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isSupabaseEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
           />
         </button>
       </div>
@@ -96,9 +94,9 @@ export const SupabaseToggle: React.FC = () => {
             Estado Actual: {actualMode === 'mock' ? 'Modo Mock' : 'Modo Supabase'}
           </span>
         </div>
-        
+
         <p className="text-sm text-gray-600">
-          {actualMode === 'mock' 
+          {actualMode === 'mock'
             ? '✅ Funcionando con datos locales - Sin errores de conexión'
             : '⚠️ Intentando usar Supabase - Puede tener errores de conexión'
           }
