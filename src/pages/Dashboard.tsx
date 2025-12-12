@@ -380,80 +380,78 @@ const Dashboard: React.FC = () => {
         />
 
         {/* Debug Sidebar (solo desarrollo) */}
-        {import.meta.env.DEV && (
-          <DebugSidebar
-            onSimulateStatusChange={(status) => {
-              const targetAppId = selectedApplicationId || applications[0]?.id;
-              if (!targetAppId) {
-                console.warn('No hay aplicaciones disponibles para simular');
-                return;
+        <DebugSidebar
+          onSimulateStatusChange={(status) => {
+            const targetAppId = selectedApplicationId || applications[0]?.id;
+            if (!targetAppId) {
+              console.warn('No hay aplicaciones disponibles para simular');
+              return;
+            }
+
+            const targetApp = applications.find(a => a.id === targetAppId);
+
+            sendStatusChangeNotification(
+              candidateId,
+              targetAppId,
+              'screening',
+              status as any,
+              {
+                positionTitle: targetApp?.position || 'Desarrollador React',
+                companyName: targetApp?.company || 'TechCorp',
+                candidateName: profile?.personalInfo.firstName || 'Candidato',
+                recruiterName: 'Recruiter Demo'
               }
+            );
+          }}
+          onScheduleInterviewReminder={() => {
+            const targetAppId = selectedApplicationId || applications[0]?.id;
+            if (!targetAppId) return;
 
-              const targetApp = applications.find(a => a.id === targetAppId);
+            const targetApp = applications.find(a => a.id === targetAppId);
 
-              sendStatusChangeNotification(
-                candidateId,
-                targetAppId,
-                'screening',
-                status as any,
-                {
-                  positionTitle: targetApp?.position || 'Desarrollador React',
-                  companyName: targetApp?.company || 'TechCorp',
-                  candidateName: profile?.personalInfo.firstName || 'Candidato',
-                  recruiterName: 'Recruiter Demo'
-                }
-              );
-            }}
-            onScheduleInterviewReminder={() => {
-              const targetAppId = selectedApplicationId || applications[0]?.id;
-              if (!targetAppId) return;
+            scheduleInterviewReminder(
+              targetAppId,
+              new Date(Date.now() + 86400000), // Mañana
+              {
+                candidateName: profile?.personalInfo.firstName || 'Candidato',
+                positionTitle: targetApp?.position || 'Desarrollador React',
+                companyName: targetApp?.company || 'TechCorp',
+                recruiterName: 'Recruiter Demo',
+                interviewMode: 'Virtual'
+              }
+            );
+          }}
+          onSendDeadlineAlert={() => {
+            const targetAppId = selectedApplicationId || applications[0]?.id;
+            if (!targetAppId) return;
 
-              const targetApp = applications.find(a => a.id === targetAppId);
+            const targetApp = applications.find(a => a.id === targetAppId);
 
-              scheduleInterviewReminder(
-                targetAppId,
-                new Date(Date.now() + 86400000), // Mañana
-                {
-                  candidateName: profile?.personalInfo.firstName || 'Candidato',
-                  positionTitle: targetApp?.position || 'Desarrollador React',
-                  companyName: targetApp?.company || 'TechCorp',
-                  recruiterName: 'Recruiter Demo',
-                  interviewMode: 'Virtual'
-                }
-              );
-            }}
-            onSendDeadlineAlert={() => {
-              const targetAppId = selectedApplicationId || applications[0]?.id;
-              if (!targetAppId) return;
+            sendDeadlineAlert(
+              targetAppId,
+              'document_upload',
+              new Date(Date.now() + 172800000), // 2 días
+              {
+                positionTitle: targetApp?.position || 'Desarrollador React'
+              }
+            );
+          }}
+          onSendFeedbackNotification={() => {
+            const targetAppId = selectedApplicationId || applications[0]?.id;
+            if (!targetAppId) return;
 
-              const targetApp = applications.find(a => a.id === targetAppId);
+            const targetApp = applications.find(a => a.id === targetAppId);
 
-              sendDeadlineAlert(
-                targetAppId,
-                'document_upload',
-                new Date(Date.now() + 172800000), // 2 días
-                {
-                  positionTitle: targetApp?.position || 'Desarrollador React'
-                }
-              );
-            }}
-            onSendFeedbackNotification={() => {
-              const targetAppId = selectedApplicationId || applications[0]?.id;
-              if (!targetAppId) return;
-
-              const targetApp = applications.find(a => a.id === targetAppId);
-
-              sendFeedbackNotification(
-                targetAppId,
-                {
-                  candidateName: profile?.personalInfo.firstName || 'Candidato',
-                  positionTitle: targetApp?.position || 'Desarrollador React',
-                  companyName: targetApp?.company || 'TechCorp'
-                }
-              );
-            }}
-          />
-        )}
+            sendFeedbackNotification(
+              targetAppId,
+              {
+                candidateName: profile?.personalInfo.firstName || 'Candidato',
+                positionTitle: targetApp?.position || 'Desarrollador React',
+                companyName: targetApp?.company || 'TechCorp'
+              }
+            );
+          }}
+        />
       </div>
     </PullToRefresh>
   );

@@ -37,13 +37,13 @@ class AuthService {
 
     try {
       // Verificar sesión existente con timeout
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Timeout de conexión')), 3000)
       );
-      
+
       const sessionPromise = supabase!.auth.getSession();
       const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]) as any;
-      
+
       if (error) {
         console.error('Error obteniendo sesión:', error);
         this.handleAuthError(error);
@@ -66,7 +66,7 @@ class AuthService {
       // Escuchar cambios de autenticación
       supabase!.auth.onAuthStateChange((event: string, session: any) => {
         console.log('🔄 Cambio de estado de auth:', event);
-        
+
         if (session?.user) {
           this.setCurrentUser({
             id: session.user.id,
@@ -91,17 +91,13 @@ class AuthService {
   private async createAnonymousUser() {
     try {
       console.log('👤 Creando usuario anónimo para desarrollo...');
-      
+
       const { data, error } = await supabase!.auth.signInAnonymously();
-      
+
       if (error) {
         console.error('Error creando usuario anónimo:', error);
-        // Fallback a modo mock
-        this.setCurrentUser({
-          id: 'anonymous-user-' + Date.now(),
-          isAuthenticated: true,
-          isMock: true
-        });
+        // En producción NO hacemos fallback a mock para evitar errores 400 en Supabase
+        // El usuario deberá iniciar sesión manualmente
         return;
       }
 
@@ -117,12 +113,7 @@ class AuthService {
 
     } catch (error) {
       console.error('Error en signInAnonymously:', error);
-      // Fallback a modo mock
-      this.setCurrentUser({
-        id: 'fallback-user-' + Date.now(),
-        isAuthenticated: true,
-        isMock: true
-      });
+      // En producción NO hacemos fallback a mock
     }
   }
 
@@ -131,7 +122,7 @@ class AuthService {
    */
   private handleAuthError(error: any) {
     console.warn('⚠️ Error de autenticación, usando modo mock:', error.message);
-    
+
     // Crear usuario mock como fallback
     this.setCurrentUser({
       id: 'mock-user-' + Date.now(),
@@ -195,7 +186,7 @@ class AuthService {
 
     try {
       console.log('🔄 Intentando conectar a Supabase...');
-      
+
       const { data, error } = await supabase!.auth.signInWithPassword({
         email,
         password
@@ -204,9 +195,9 @@ class AuthService {
       if (error) {
         console.error('Error en signIn:', error);
         // NO hacer fallback automático - devolver el error
-        return { 
-          success: false, 
-          error: `Error de Supabase: ${error.message}` 
+        return {
+          success: false,
+          error: `Error de Supabase: ${error.message}`
         };
       }
 
@@ -223,11 +214,11 @@ class AuthService {
 
     } catch (error: any) {
       console.error('Error inesperado en signIn:', error);
-      
+
       // NO hacer fallback automático - devolver el error
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Error desconocido' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido'
       };
     }
   }
@@ -258,10 +249,10 @@ class AuthService {
    */
   onAuthStateChange(callback: (user: AuthUser | null) => void): () => void {
     this.listeners.push(callback);
-    
+
     // Llamar inmediatamente con el estado actual
     callback(this.currentUser);
-    
+
     // Retornar función para desregistrar
     return () => {
       const index = this.listeners.indexOf(callback);
@@ -289,7 +280,7 @@ class AuthService {
 
     try {
       const { data, error } = await supabase!.auth.refreshSession();
-      
+
       if (error) {
         console.error('Error refrescando sesión:', error);
         return;
