@@ -1,0 +1,203 @@
+/* Import Inter font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* Import animations */
+@import './animations.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply transition-colors duration-200 ease-in-out;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900 font-sans antialiased;
+  }
+
+  /* Dark mode support */
+  @media (prefers-color-scheme: dark) {
+    body {
+      @apply bg-slate-900 text-slate-100;
+    }
+  }
+
+  /* Smooth scrolling with safe area support */
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  /* Prevent text selection on buttons and interactive elements */
+  button,
+  [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Improve touch scrolling on iOS */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@layer components {
+  /* Glassmorphism Card Base */
+  .glass-card {
+    @apply backdrop-blur-md bg-white/80 border border-white/20;
+    @apply shadow-xl shadow-slate-200/50;
+    @apply rounded-2xl;
+  }
+
+  /* Modal Backdrop */
+  .glass-backdrop {
+    @apply backdrop-blur-sm bg-slate-900/20;
+  }
+
+  /* Navigation Bar */
+  .glass-nav {
+    @apply backdrop-blur-lg bg-white/90 border-t border-white/20;
+    @apply shadow-lg shadow-slate-200/30;
+  }
+
+  /* Touch Target (minimum 44x44px) */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+    @apply flex items-center justify-center;
+  }
+
+  /* Button Variants */
+  .btn-primary {
+    @apply bg-primary-500 hover:bg-primary-600 text-white;
+    @apply px-6 py-3 rounded-lg font-semibold;
+    @apply touch-target;
+  }
+
+  .btn-success {
+    @apply bg-success-500 hover:bg-success-600 text-white;
+    @apply px-6 py-3 rounded-lg font-semibold;
+    @apply touch-target;
+  }
+
+  .btn-danger {
+    @apply bg-danger-500 hover:bg-danger-600 text-white;
+    @apply px-6 py-3 rounded-lg font-semibold;
+    @apply touch-target;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent hover:bg-slate-100 text-slate-700;
+    @apply px-6 py-3 rounded-lg font-semibold;
+    @apply touch-target;
+  }
+
+  .btn-premium {
+    @apply bg-gradient-to-r from-gold-400 to-gold-500 hover:from-gold-500 hover:to-gold-600 text-white;
+    @apply px-6 py-3 rounded-lg font-semibold;
+    @apply touch-target;
+  }
+}
+
+@layer utilities {
+  /* Safe area for mobile devices with notches, dynamic island, etc. */
+  @supports (padding: max(0px)) {
+    .safe-area-inset-top {
+      padding-top: max(0.5rem, env(safe-area-inset-top));
+    }
+    
+    .safe-area-inset-bottom {
+      padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    }
+    
+    .safe-area-inset-left {
+      padding-left: max(0.5rem, env(safe-area-inset-left));
+    }
+    
+    .safe-area-inset-right {
+      padding-right: max(0.5rem, env(safe-area-inset-right));
+    }
+    
+    .safe-area-inset {
+      padding-top: max(0.5rem, env(safe-area-inset-top));
+      padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+      padding-left: max(0.5rem, env(safe-area-inset-left));
+      padding-right: max(0.5rem, env(safe-area-inset-right));
+    }
+  }
+  
+  /* Responsive text utilities */
+  .text-responsive-xl {
+    @apply text-xl md:text-2xl lg:text-3xl;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg md:text-xl lg:text-2xl;
+  }
+  
+  /* Responsive spacing */
+  .container-padding {
+    @apply px-4 md:px-6 lg:px-8;
+  }
+  
+  /* Responsive grid utilities */
+  .bento-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6;
+  }
+  
+  /* Hide on mobile */
+  .hide-mobile {
+    @apply hidden md:block;
+  }
+  
+  /* Show only on mobile */
+  .show-mobile {
+    @apply block md:hidden;
+  }
+}
+
+/* Accessibility: Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  /* Keep essential animations but make them instant */
+  .status-in-progress {
+    animation: none !important;
+  }
+  
+  .skeleton {
+    animation: none !important;
+  }
+  
+  .confetti {
+    display: none !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  * {
+    border-width: 2px !important;
+  }
+  
+  .glass-card {
+    @apply bg-white border-slate-900;
+  }
+  
+  button:focus,
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: 3px solid currentColor !important;
+    outline-offset: 2px !important;
+  }
+}

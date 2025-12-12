@@ -1,0 +1,697 @@
+﻿import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Briefcase, Filter, TrendingUp } from 'lucide-react';
+import { useHapticFeedback } from '../hooks/useHapticFeedback';
+import { PullToRefresh } from '../components/core/PullToRefresh';
+import OfferCard from '../components/salary/OfferCard';
+import { mockJobOffers } from '../services/mock/mockOffers';
+import type { JobOffer } from '../types/salary';
+import { useApplications } from '../hooks/useApplications';
+
+const Offers: React.FC = () => {
+  const navigate = useNavigate();
+  const { triggerHaptic } = useHapticFeedback();
+  const { createApplication } = useApplications();
+  const [offers, setOffers] = useState<JobOffer[]>(mockJobOffers);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'accepted' | 'declined' | 'negotiating'>('all');
+
+  // Estados para modales
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [showNegotiateModal, setShowNegotiateModal] = useState(false);
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [selectedOffer, setSelectedOffer] = useState<JobOffer | null>(null);
+  const [negotiationMessage, setNegotiationMessage] = useState('');
+  const [declineReason, setDeclineReason] = useState('');
+
+  const handleRefresh = async () => {
+    triggerHaptic('medium');
+    // Simulate API call to refresh offers
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    triggerHaptic('success');
+  };
+
+  const handleAcceptOffer = (offerId: string) => {
+    const offer = offers.find(o => o.id === offerId);
+    if (offer) {
+      setSelectedOffer(offer);
+      setShowAcceptModal(true);
+      triggerHaptic('light');
+    }
+  };
+
+  const confirmAcceptOffer = async () => {
+    if (!selectedOffer) return;
+
+    triggerHaptic('success');
+
+    // Actualizar el estado de la oferta a 'accepted'
+    setOffers(prevOffers =>
+      prevOffers.map(offer =>
+        offer.id === selectedOffer.id
+          ? {
+            ...offer,
+            status: 'accepted' as const,
+            negotiationNotes: 'Oferta aceptada - Esperando contrato'
+          }
+          : offer
+      )
+    );
+
+    // Crear aplicacion en Mis Postulaciones con estado activo
+    try {
+      const newApplication = {
+        candidateId: 'user-1',
+        jobId: selectedOffer.applicationId,
+        company: selectedOffer.companyName,
+        position: selectedOffer.positionTitle,
+        availablePositions: 1,
+        status: 'active' as const,
+        appliedDate: new Date(),
+        lastUpdate: new Date(),
+        interviewConfirmed: false,
+        currentStageId: 'stage-1',
+        stages: [
+          {
+            id: 'stage-1',
+            name: 'Recibido',
+            order: 1,
+            status: 'in_progress' as const,
+            estimatedDays: 1,
+            startDate: new Date(),
+          }
+        ]
+      };
+
+      await createApplication(newApplication);
+      console.log(`Aplicación creada en postulaciones: ${selectedOffer.positionTitle}`);
+    } catch (error) {
+      console.error('Error creando aplicacion:', error);
+    }
+
+    setShowAcceptModal(false);
+    setShowSuccessModal(true);
+
+    console.log(`Oferta aceptada: ${selectedOffer.id}`);
+  };
+
+  const handleDeclineOffer = (offerId: string) => {
+    const offer = offers.find(o => o.id === offerId);
+    if (offer) {
+      setSelectedOffer(offer);
+      setDeclineReason('');
+      setShowDeclineModal(true);
+      triggerHaptic('warning');
+    }
+  };
+
+  const confirmDeclineOffer = () => {
+    if (!selectedOffer) return;
+
+    triggerHaptic('warning');
+
+    // Actualizar el estado de la oferta a 'declined'
+    setOffers(prevOffers =>
+      prevOffers.map(o =>
+        o.id === selectedOffer.id
+          ? {
+            ...o,
+            status: 'declined' as const,
+            negotiationNotes: declineReason || 'Oferta rechazada por el candidato'
+          }
+          : o
+      )
+    );
+
+    setShowDeclineModal(false);
+    setDeclineReason('');
+
+    console.log(`Oferta rechazada: ${selectedOffer.id}`);
+  };
+
+  const handleNegotiateOffer = (offerId: string) => {
+    const offer = offers.find(o => o.id === offerId);
+    if (offer) {
+      setSelectedOffer(offer);
+      setNegotiationMessage('');
+      setShowNegotiateModal(true);
+      triggerHaptic('light');
+    }
+  };
+
+  const confirmNegotiateOffer = () => {
+    if (!selectedOffer) return;
+
+    triggerHaptic('success');
+
+    // Crear nuevo mensaje de negociaci�n
+    const newMessage = {
+      id: `msg-${Date.now()}`,
+      sender: 'candidate' as const,
+      message: negotiationMessage,
+      timestamp: new Date(),
+      read: false
+    };
+
+    // Actualizar el estado de la oferta a 'negotiating' y agregar mensaje
+    setOffers(prevOffers =>
+      prevOffers.map(offer =>
+        offer.id === selectedOffer.id
+          ? {
+            ...offer,
+            status: 'negotiating' as const,
+            negotiationNotes: 'En negociaci�n - Esperando respuesta de la empresa',
+            negotiationMessages: [...(offer.negotiationMessages || []), newMessage],
+            awaitingCandidateResponse: false // El candidato envi� mensaje, ahora espera respuesta
+          }
+          : offer
+      )
+    );
+
+    setShowNegotiateModal(false);
+    setNegotiationMessage('');
+
+    console.log(`Negociaci�n iniciada: ${selectedOffer.id}`);
+  };
+
+  const filteredOffers = filter === 'all'
+    ? offers
+    : offers.filter(offer => offer.status === filter);
+
+  const getFilterCount = (status: typeof filter) => {
+    if (status === 'all') return offers.length;
+    return offers.filter(offer => offer.status === status).length;
+  };
+
+  return (
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 pb-24 md:pb-8">
+        {/* Header */}
+        <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40 safe-area-inset-top">
+          <div className="max-w-4xl mx-auto px-4 py-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => {
+                  triggerHaptic('light');
+                  navigate('/');
+                }}
+                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95 touch-target"
+              >
+                <ArrowLeft className="w-5 h-5 text-slate-700 dark:text-slate-300" />
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                  Mis Ofertas de Trabajo
+                </h1>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  {offers.length} oferta{offers.length !== 1 ? 's' : ''} recibida{offers.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-4xl mx-auto px-4 py-6">
+          {/* Stats Overview */}
+          <section className="mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              {/* Todas */}
+              <button
+                onClick={() => setFilter('all')}
+                className={`p-4 rounded-2xl border-2 transition-all text-left ${filter === 'all'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-primary-300'
+                  }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Briefcase className="w-4 h-4 text-primary-600" />
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Total</span>
+                </div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {getFilterCount('all')}
+                </p>
+              </button>
+
+              {/* Pendientes */}
+              <button
+                onClick={() => setFilter('pending')}
+                className={`p-4 rounded-2xl border-2 transition-all text-left ${filter === 'pending'
+                    ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/30'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-yellow-300'
+                  }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Filter className="w-4 h-4 text-yellow-600" />
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Pendientes</span>
+                </div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {getFilterCount('pending')}
+                </p>
+              </button>
+
+              {/* Aceptadas */}
+              <button
+                onClick={() => setFilter('accepted')}
+                className={`p-4 rounded-2xl border-2 transition-all text-left ${filter === 'accepted'
+                    ? 'border-green-500 bg-green-50 dark:bg-green-900/30'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-green-300'
+                  }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-4 h-4 text-green-600" />
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Aceptadas</span>
+                </div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {getFilterCount('accepted')}
+                </p>
+              </button>
+
+              {/* En Negociaci�n */}
+              <button
+                onClick={() => setFilter('negotiating')}
+                className={`p-4 rounded-2xl border-2 transition-all text-left ${filter === 'negotiating'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-blue-300'
+                  }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Filter className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Negociando</span>
+                </div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {getFilterCount('negotiating')}
+                </p>
+              </button>
+
+              {/* Rechazadas */}
+              <button
+                onClick={() => setFilter('declined')}
+                className={`p-4 rounded-2xl border-2 transition-all text-left ${filter === 'declined'
+                    ? 'border-red-500 bg-red-50 dark:bg-red-900/30'
+                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-red-300'
+                  }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Rechazadas</span>
+                </div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {getFilterCount('declined')}
+                </p>
+              </button>
+            </div>
+          </section>
+
+          {/* Offers List */}
+          <section>
+            {filteredOffers.length === 0 ? (
+              <div className="text-center py-12">
+                <Briefcase className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                  {filter === 'all' ? 'No tienes ofertas' : `No hay ofertas ${filter === 'pending' ? 'pendientes' : filter === 'accepted' ? 'aceptadas' : filter === 'negotiating' ? 'en negociaci�n' : 'rechazadas'}`}
+                </h3>
+                <p className="text-slate-500 dark:text-slate-500">
+                  {filter === 'all'
+                    ? 'Cuando las empresas te env�en ofertas, aparecer�n aqu�'
+                    : 'Cambia el filtro para ver otras ofertas'
+                  }
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {filteredOffers.map((offer) => (
+                  <OfferCard
+                    key={offer.id}
+                    offer={offer}
+                    onAccept={handleAcceptOffer}
+                    onDecline={handleDeclineOffer}
+                    onNegotiate={handleNegotiateOffer}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Info Footer */}
+          <div className="mt-12 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl border border-blue-200 dark:border-blue-800">
+            <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-3">
+              ?? Sobre el Calculador de Salario
+            </h4>
+            <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
+              <p>� <strong>Salario neto:</strong> Lo que recibir�s en tu cuenta despu�s de impuestos y descuentos</p>
+              <p>� <strong>Beneficios valorados:</strong> Estimaci�n monetaria de seguros, vales, bonos y otros beneficios</p>
+              <p>� <strong>Paquete total:</strong> Tu compensaci�n real incluyendo salario y beneficios</p>
+              <p>� <strong>C�lculos por pa�s:</strong> Impuestos y regulaciones espec�ficas de cada pa�s de LATAM</p>
+            </div>
+          </div>
+        </main>
+
+        {/* Modal: Aceptar Oferta */}
+        {showAcceptModal && selectedOffer && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setShowAcceptModal(false)}>
+            <div className="min-h-screen px-4 flex items-center justify-center py-8">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      Aceptar Proceso de Contrataci�n
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {selectedOffer.companyName}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="mb-6 space-y-3">
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                    <p className="text-sm font-semibold text-green-900 dark:text-green-100 mb-2">
+                      {selectedOffer.positionTitle}
+                    </p>
+                    <p className="text-lg font-bold text-green-700 dark:text-green-300">
+                      {selectedOffer.fixedSalary
+                        ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: selectedOffer.currency, minimumFractionDigits: 0 }).format(selectedOffer.fixedSalary)
+                        : selectedOffer.salaryRange
+                          ? `${new Intl.NumberFormat('es-ES', { style: 'currency', currency: selectedOffer.currency, minimumFractionDigits: 0 }).format(selectedOffer.salaryRange.min)} - ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: selectedOffer.currency, minimumFractionDigits: 0 }).format(selectedOffer.salaryRange.max)}`
+                          : 'A negociar'
+                      }
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                    <p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-2">
+                      ?? Al aceptar entrar al proceso:
+                    </p>
+                    <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                      <li>� Iniciar�s el proceso formal de contrataci�n</li>
+                      <li>� La empresa preparar� tu contrato</li>
+                      <li>� Recibir�s documentos para revisi�n y firma</li>
+                      <li>� Se coordinar� tu fecha de inicio</li>
+                      <li>� Podr�s revisar t�rminos antes de firmar</li>
+                    </ul>
+                  </div>
+
+                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                    Esto NO es una firma de contrato, solo confirmas tu inter�s en continuar
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowAcceptModal(false);
+                      triggerHaptic('light');
+                    }}
+                    className="flex-1 px-4 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 font-semibold rounded-xl transition-all active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmAcceptOffer}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all active:scale-95 shadow-lg"
+                  >
+                    Continuar al Proceso
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Negociar Oferta */}
+        {showNegotiateModal && selectedOffer && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setShowNegotiateModal(false)}>
+            <div className="min-h-screen px-4 flex items-center justify-center py-8">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      Iniciar Negociaci�n
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {selectedOffer.companyName}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="mb-6 space-y-4">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                      {selectedOffer.positionTitle}
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Oferta actual: {selectedOffer.fixedSalary
+                        ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: selectedOffer.currency, minimumFractionDigits: 0 }).format(selectedOffer.fixedSalary)
+                        : selectedOffer.salaryRange
+                          ? `${new Intl.NumberFormat('es-ES', { style: 'currency', currency: selectedOffer.currency, minimumFractionDigits: 0 }).format(selectedOffer.salaryRange.min)} - ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: selectedOffer.currency, minimumFractionDigits: 0 }).format(selectedOffer.salaryRange.max)}`
+                          : 'A negociar'
+                      }
+                    </p>
+                  </div>
+
+                  {/* Historial de Mensajes */}
+                  {selectedOffer.negotiationMessages && selectedOffer.negotiationMessages.length > 0 && (
+                    <div className="max-h-64 overflow-y-auto space-y-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                        ?? Historial de Negociaci�n
+                      </p>
+                      {selectedOffer.negotiationMessages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`p-3 rounded-lg ${msg.sender === 'candidate'
+                              ? 'bg-blue-100 dark:bg-blue-900/30 ml-4'
+                              : 'bg-green-100 dark:bg-green-900/30 mr-4'
+                            }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              {msg.sender === 'candidate' ? '?? T�' : '?? Empresa'}
+                            </span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {new Date(msg.timestamp).toLocaleDateString('es-ES', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-800 dark:text-slate-200">
+                            {msg.message}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      {selectedOffer.negotiationMessages && selectedOffer.negotiationMessages.length > 0
+                        ? 'Tu respuesta:'
+                        : '�Qu� te gustar�a negociar?'}
+                    </label>
+                    <textarea
+                      value={negotiationMessage}
+                      onChange={(e) => setNegotiationMessage(e.target.value)}
+                      placeholder="Ej: Me gustar�a negociar un salario de �2,500,000 y trabajo remoto 3 d�as a la semana..."
+                      className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      rows={4}
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                      S� espec�fico sobre salario, beneficios, horarios o modalidad de trabajo
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                    <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                      ?? <strong>Tip:</strong> La empresa recibir� tu mensaje y responder� en 1-3 d�as h�biles. Mant�n un tono profesional y realista.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowNegotiateModal(false);
+                      setNegotiationMessage('');
+                      triggerHaptic('light');
+                    }}
+                    className="flex-1 px-4 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 font-semibold rounded-xl transition-all active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmNegotiateOffer}
+                    disabled={!negotiationMessage.trim()}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all active:scale-95 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {selectedOffer.negotiationMessages && selectedOffer.negotiationMessages.length > 0
+                      ? 'Enviar Respuesta'
+                      : 'Enviar Propuesta'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Rechazar Oferta */}
+        {showDeclineModal && selectedOffer && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setShowDeclineModal(false)}>
+            <div className="min-h-screen px-4 flex items-center justify-center py-8">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+                    <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      �Rechazar esta oferta?
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {selectedOffer.companyName}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="mb-6 space-y-4">
+                  <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+                    <p className="text-sm font-semibold text-red-900 dark:text-red-100 mb-2">
+                      ?? Esta acci�n no se puede deshacer
+                    </p>
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      La empresa ser� notificada de tu decisi�n y la oferta se cerrar� permanentemente.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Raz�n del rechazo (opcional)
+                    </label>
+                    <select
+                      value={declineReason}
+                      onChange={(e) => setDeclineReason(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    >
+                      <option value="">Selecciona una raz�n...</option>
+                      <option value="Salario no cumple expectativas">Salario no cumple expectativas</option>
+                      <option value="Acept� otra oferta">Acept� otra oferta</option>
+                      <option value="Ubicaci�n no conveniente">Ubicaci�n no conveniente</option>
+                      <option value="Beneficios insuficientes">Beneficios insuficientes</option>
+                      <option value="Cambio de planes personales">Cambio de planes personales</option>
+                      <option value="Otro">Otro</option>
+                    </select>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                      Esto ayuda a la empresa a mejorar sus ofertas futuras
+                    </p>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowDeclineModal(false);
+                      setDeclineReason('');
+                      triggerHaptic('light');
+                    }}
+                    className="flex-1 px-4 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 font-semibold rounded-xl transition-all active:scale-95"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmDeclineOffer}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-semibold rounded-xl transition-all active:scale-95 shadow-lg"
+                  >
+                    S�, Rechazar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: �xito */}
+        {showSuccessModal && selectedOffer && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={() => setShowSuccessModal(false)}>
+            <div className="min-h-screen px-4 flex items-center justify-center py-8">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
+                {/* Success Icon */}
+                <div className="flex justify-center mb-4">
+                  <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                    <svg className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+                    �Proceso Iniciado!
+                  </h3>
+                  <p className="text-slate-600 dark:text-slate-400 mb-4">
+                    Has aceptado entrar al proceso de contrataci�n con <strong>{selectedOffer.companyName}</strong>
+                  </p>
+
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800 mb-4">
+                    <p className="text-sm text-green-900 dark:text-green-100 font-medium mb-2">
+                      ?? Pr�ximos pasos:
+                    </p>
+                    <ul className="text-sm text-green-800 dark:text-green-200 space-y-1 text-left">
+                      <li>� Recibir�s un email de confirmaci�n</li>
+                      <li>� El equipo de RH preparar� tu contrato</li>
+                      <li>� Te enviar�n documentos para revisi�n</li>
+                      <li>� Podr�s revisar t�rminos antes de firmar</li>
+                      <li>� Se coordinar� tu fecha de inicio</li>
+                    </ul>
+                  </div>
+
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Puedes ver el estado en la secci�n "Aceptadas"
+                  </p>
+                </div>
+
+                {/* Action */}
+                <button
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    setSelectedOffer(null);
+                    setFilter('accepted');
+                    triggerHaptic('success');
+                  }}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-xl transition-all active:scale-95 shadow-lg"
+                >
+                  Ver Ofertas Aceptadas
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </PullToRefresh>
+  );
+};
+
+export default Offers;
