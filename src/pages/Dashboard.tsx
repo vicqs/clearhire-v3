@@ -33,17 +33,34 @@ const Dashboard: React.FC = () => {
 
   React.useEffect(() => {
     const getUserId = async () => {
-      // Importación dinámica para evitar ciclos
-      const { dataService } = await import('../services/dataService');
-      const userId = dataService.getCurrentUserId();
-      if (userId && userId !== 'mock-user') {
-        setCandidateId(userId);
+      try {
+        // Usar supabase directamente para garantizar el ID de autenticación
+        const { supabase } = await import('../lib/supabase');
+
+        if (supabase) {
+          const { data } = await supabase.auth.getUser();
+          if (data.user) {
+            console.log('✅ Dashboard user ID:', data.user.id);
+            setCandidateId(data.user.id);
+            return;
+          }
+        }
+
+        // Fallback a dataService si no hay usuario directo (caso mock)
+        const { dataService } = await import('../services/dataService');
+        const userId = dataService.getCurrentUserId();
+        if (userId && userId !== 'mock-user') {
+          setCandidateId(userId);
+        }
+      } catch (e) {
+        console.error('Error getting user ID:', e);
       }
     };
     getUserId();
   }, []);
 
   const {
+    notifications,
     unreadCount,
     analytics,
     sendStatusChangeNotification,
@@ -357,6 +374,7 @@ const Dashboard: React.FC = () => {
           isOpen={notificationCenterOpen}
           onClose={() => setNotificationCenterOpen(false)}
           candidateId={candidateId}
+          notifications={notifications}
           analytics={analytics}
           onClearAll={clearAllNotifications}
         />

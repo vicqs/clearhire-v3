@@ -64,7 +64,7 @@ export const useNotifications = (candidateId: string): UseNotificationsReturn =>
     try {
       const history = await notificationService.getNotifications(candidateId);
       const unread = await notificationService.getUnreadCount(candidateId);
-      const analyticsData = notificationService.getAnalytics(candidateId);
+      const analyticsData = await notificationService.getAnalytics(candidateId);
 
       setNotifications(history);
       setUnreadCount(unread);

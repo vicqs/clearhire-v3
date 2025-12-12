@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  X, Bell, Check, Clock, AlertCircle, Smartphone, Mail, Monitor, Filter, 
+import React, { useState } from 'react';
+import {
+  X, Bell, Check, Clock, AlertCircle, Smartphone, Mail, Monitor, Filter,
   BarChart3, Trash2, Download, Search, Calendar, Star
 } from 'lucide-react';
 import { useHapticFeedback } from '../../hooks/useHapticFeedback';
@@ -12,6 +12,7 @@ interface NotificationCenterProps {
   isOpen: boolean;
   onClose: () => void;
   candidateId: string;
+  notifications: Notification[];
   analytics?: any;
   onClearAll?: () => void;
 }
@@ -20,32 +21,20 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   isOpen,
   onClose,
   candidateId,
+  notifications,
   analytics,
   onClearAll
 }) => {
   const { triggerHaptic } = useHapticFeedback();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [filter, setFilter] = useState<'all' | NotificationType>('all');
   const [channelFilter, setChannelFilter] = useState<'all' | DeliveryChannel>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'notifications' | 'analytics'>('notifications');
   const [sortBy, setSortBy] = useState<'date' | 'priority' | 'status'>('date');
 
-  useEffect(() => {
-    if (isOpen) {
-      loadNotifications();
-    }
-  }, [isOpen, candidateId]);
-
-  const loadNotifications = () => {
-    const history = notificationService.getNotificationHistory(candidateId);
-    setNotifications(history);
-  };
-
   const handleMarkAsRead = (notificationId: string) => {
     triggerHaptic('light');
     notificationService.markAsRead(notificationId);
-    loadNotifications();
   };
 
   const handleMarkAllAsRead = () => {
@@ -53,14 +42,12 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     notifications
       .filter(n => n.status !== 'read')
       .forEach(n => notificationService.markAsRead(n.id));
-    loadNotifications();
   };
 
   const handleClearAll = () => {
     triggerHaptic('warning');
     if (confirm('¿Estás seguro de que deseas limpiar todas las notificaciones? Esta acción no se puede deshacer.')) {
       onClearAll?.();
-      loadNotifications();
     }
   };
 
@@ -126,8 +113,8 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     if (minutes < 60) return `Hace ${minutes}m`;
     if (hours < 24) return `Hace ${hours}h`;
     if (days < 7) return `Hace ${days}d`;
-    return date.toLocaleDateString('es-ES', { 
-      day: 'numeric', 
+    return date.toLocaleDateString('es-ES', {
+      day: 'numeric',
       month: 'short',
       hour: '2-digit',
       minute: '2-digit'
@@ -138,12 +125,12 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
     .filter(notification => {
       const typeMatch = filter === 'all' || notification.type === filter;
       const channelMatch = channelFilter === 'all' || notification.channels.includes(channelFilter);
-      const searchMatch = searchTerm === '' || 
+      const searchMatch = searchTerm === '' ||
         notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         notification.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
         notification.metadata.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         notification.metadata.positionTitle?.toLowerCase().includes(searchTerm.toLowerCase());
-      
+
       return typeMatch && channelMatch && searchMatch;
     })
     .sort((a, b) => {
@@ -166,11 +153,11 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       {/* Modal */}
       <div className="relative w-full max-w-4xl max-h-[90vh] bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
@@ -188,28 +175,26 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {/* Tabs */}
             <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-1 mr-4">
               <button
                 onClick={() => setActiveTab('notifications')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  activeTab === 'notifications'
-                    ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                }`}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'notifications'
+                  ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                  }`}
               >
                 <Bell className="w-4 h-4 inline mr-1" />
                 Notificaciones
               </button>
               <button
                 onClick={() => setActiveTab('analytics')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  activeTab === 'analytics'
-                    ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
-                }`}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'analytics'
+                  ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                  }`}
               >
                 <BarChart3 className="w-4 h-4 inline mr-1" />
                 Analytics
@@ -229,7 +214,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                       <Check className="w-4 h-4" />
                     </button>
                   )}
-                  
+
                   <button
                     onClick={handleExport}
                     className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
@@ -237,7 +222,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   >
                     <Download className="w-4 h-4" />
                   </button>
-                  
+
                   {notifications.length > 0 && (
                     <button
                       onClick={handleClearAll}
@@ -249,7 +234,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   )}
                 </>
               )}
-              
+
               <button
                 onClick={onClose}
                 className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -286,7 +271,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   <Filter className="w-4 h-4 text-slate-500" />
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Filtros:</span>
                 </div>
-                
+
                 {/* Type Filter */}
                 <select
                   value={filter}
@@ -347,19 +332,17 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   {filteredNotifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`p-4 border-l-4 ${getPriorityColor(notification.priority)} ${
-                        notification.status === 'read' ? 'opacity-75' : ''
-                      } hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors`}
+                      className={`p-4 border-l-4 ${getPriorityColor(notification.priority)} ${notification.status === 'read' ? 'opacity-75' : ''
+                        } hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           {/* Header */}
                           <div className="flex items-center gap-2 mb-2">
-                            <h3 className={`font-semibold text-sm ${
-                              notification.status === 'read' 
-                                ? 'text-slate-600 dark:text-slate-400' 
-                                : 'text-slate-900 dark:text-slate-100'
-                            }`}>
+                            <h3 className={`font-semibold text-sm ${notification.status === 'read'
+                              ? 'text-slate-600 dark:text-slate-400'
+                              : 'text-slate-900 dark:text-slate-100'
+                              }`}>
                               {notification.title}
                             </h3>
                             {notification.status !== 'read' && (
@@ -381,17 +364,17 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                               {getStatusIcon(notification.status)}
                               <span className="capitalize">{notification.status}</span>
                             </div>
-                            
+
                             <div className="flex items-center gap-1">
                               {getChannelIcon(notification.channels[0])}
                               <span className="capitalize">{notification.channels[0]}</span>
                             </div>
-                            
+
                             <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
                               <span>{formatTime(notification.scheduledAt)}</span>
                             </div>
-                            
+
                             {notification.metadata.companyName && (
                               <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-xs">
                                 {notification.metadata.companyName}

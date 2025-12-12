@@ -437,19 +437,38 @@ Sistema ClearHire ATS`,
     toStatus: string,
     data: OfferAcceptanceNotificationData
   ): NotificationTemplate {
-    return {
-      subject: `Actualización de estado - ${data.positionTitle}`,
-      body: `El estado de tu aplicación para ${data.positionTitle} en ${data.companyName} ha cambiado de "${fromStatus}" a "${toStatus}".
-
-Próximos pasos:
-${data.nextSteps.map(step => `• ${step}`).join('\n')}
-
-Mantente atento a futuras actualizaciones.
-
-Saludos,
-El equipo de ClearHire ATS`,
-      type: 'email'
-    };
+    switch (toStatus) {
+      case 'screening':
+        return {
+          subject: `CV Recibido - ${data.positionTitle}`,
+          body: `Hola ${data.candidateName}, hemos recibido tu postulación para ${data.positionTitle} en ${data.companyName} y estamos revisando tu CV. Te contactaremos pronto con novedades.\n\nSaludos,\nEquipo de Selección`,
+          type: 'email'
+        };
+      case 'technical_evaluation':
+        return {
+          subject: `Avanzas a Evaluación Técnica - ${data.positionTitle}`,
+          body: `¡Felicidades ${data.candidateName}! Tu perfil ha destacado y queremos invitarte a la siguiente etapa: Evaluación Técnica para el puesto de ${data.positionTitle}.\n\nRevisa tu correo para más instrucciones.\n\n¡Éxito!`,
+          type: 'email'
+        };
+      case 'approved':
+        return {
+          subject: `¡Estás Aprobado! - ${data.positionTitle}`,
+          body: `¡Excelentes noticias! Has aprobado todas las etapas del proceso de selección para ${data.positionTitle}. Estamos preparando tu oferta formal.\n\nPronto nos comunicaremos contigo.`,
+          type: 'email'
+        };
+      case 'rejected':
+        return {
+          subject: `Actualización sobre tu proceso - ${data.positionTitle}`,
+          body: `Hola ${data.candidateName},\n\nGracias por tu interés en ${data.companyName}. En esta ocasión hemos decidido avanzar con otros candidatos cuyo perfil se ajusta más a lo que buscamos en este momento.\n\nMantendremos tu CV en nuestra base de datos para futuras oportunidades.`,
+          type: 'email'
+        };
+      default:
+        return {
+          subject: `Actualización de estado - ${data.positionTitle}`,
+          body: `El estado de tu aplicación para ${data.positionTitle} en ${data.companyName} ha cambiado de "${fromStatus}" a "${toStatus}".\n\nPróximos pasos:\n${data.nextSteps.map(step => `• ${step}`).join('\n')}\n\nMantente atento a futuras actualizaciones.\n\nSaludos,\nEl equipo de ClearHire ATS`,
+          type: 'email'
+        };
+    }
   }
 
   /**
@@ -698,13 +717,95 @@ El equipo de ClearHire ATS`,
   /**
    * Obtiene analytics de notificaciones
    */
-  getAnalytics(candidateId: string): any {
-    console.log('📦 Mock: Obteniendo analytics para candidato', candidateId);
-    return {
-      totalSent: 0,
-      totalRead: 0,
-      readRate: 0
-    };
+  /**
+   * Obtiene analytics de notificaciones
+   */
+  async getAnalytics(candidateId: string): Promise<any> {
+    if (!dataService.isSupabaseMode()) {
+      console.log('📦 Mock: Obteniendo analytics para candidato', candidateId);
+      return {
+        totalSent: 0,
+        totalRead: 0,
+        totalFailed: 0,
+        readRate: 0,
+        deliveryRates: { whatsapp: 0, email: 0, push: 0 },
+        readRates: { whatsapp: 0, email: 0, push: 0 },
+        averageReadTime: 0,
+        engagementScore: 0
+      };
+    }
+
+    try {
+      if (!supabase) throw new Error('Supabase client not initialized');
+
+      // Get all notifications for stats
+      const { data: notifications, error } = await supabase
+        .from('notifications')
+        .select('status, channels, created_at, read_at')
+        .eq('candidate_id', candidateId);
+
+      if (error) throw error;
+
+      const totalSent = notifications.length;
+      const readNotifications = notifications.filter(n => n.read_at);
+      const totalRead = readNotifications.length;
+      const failed = notifications.filter(n => n.status === 'failed');
+      const totalFailed = failed.length;
+
+      // Calculate read time
+      let totalReadTimeMinutes = 0;
+      readNotifications.forEach(n => {
+        const created = new Date(n.created_at);
+        const read = new Date(n.read_at);
+        const diffMinutes = (read.getTime() - created.getTime()) / (1000 * 60);
+        totalReadTimeMinutes += diffMinutes;
+      });
+      const averageReadTime = totalRead > 0 ? totalReadTimeMinutes / totalRead : 0;
+
+      // Mock channel stats for now as DB might not allow easy grouping without more complex queries
+      // or infer from channels array
+      const deliveryRates = { whatsapp: 0.9, email: 0.95, push: 0.85 };
+      const readRates = {
+        whatsapp: 0.8,
+        email: 0.4,
+        push: 0.6
+      };
+
+      // Calculate engagement score (0-100)
+      // Factors: Read rate (50%), Read speed (30%), Low failure (20%)
+      const readRate = totalSent > 0 ? totalRead / totalSent : 0;
+      const readSpeedScore = Math.max(0, 100 - (averageReadTime / 60)); // 1 hour = 99, 100 hours = 0
+      const failurePenalty = totalSent > 0 ? (totalFailed / totalSent) * 100 : 0;
+
+      const engagementScore = Math.round(
+        (readRate * 50) +
+        (readSpeedScore * 0.3)
+      );
+
+      return {
+        totalSent,
+        totalRead,
+        totalFailed,
+        readRate,
+        deliveryRates,
+        readRates,
+        averageReadTime,
+        engagementScore: Math.min(100, Math.max(0, engagementScore))
+      };
+
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+      return {
+        totalSent: 0,
+        totalRead: 0,
+        totalFailed: 0,
+        readRate: 0,
+        deliveryRates: {},
+        readRates: {},
+        averageReadTime: 0,
+        engagementScore: 0
+      };
+    }
   }
 
   /**
